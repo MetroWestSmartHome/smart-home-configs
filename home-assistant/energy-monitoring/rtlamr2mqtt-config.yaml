@@ -1,0 +1,48 @@
+# rtlamr2mqtt Configuration
+#
+# For use with: https://github.com/allangood/rtlamr2mqtt
+# Full tutorial: https://metrowestsmarthome.com/2025/04/09/monitoring-energy-usage-in-home-assistant/
+#
+# Replace meter IDs with your actual meter IDs
+# Check your physical meters and add-on logs to find the correct IDs
+
+general:
+  # How often to check for readings (seconds)
+  sleep_for: 300
+  # Set to debug while troubleshooting, info for normal use
+  verbosity: debug
+  # Set to true to find meter IDs, false for normal operation
+  listen_only: false
+  tickle_rtl_tcp: false
+  device_id: single
+
+mqtt:
+  ha_autodiscovery: true
+  ha_autodiscovery_topic: homeassistant
+  base_topic: rtlamr
+  tls_enabled: false
+
+custom_parameters:
+  rtltcp: "-s 2048000"
+  rtlamr: "-unique=true"
+
+meters:
+  # Water Meter
+  # Protocol options: r900, scm, scm+, idm, netidm, r900bcd
+  - id: YOUR_WATER_METER_ID
+    protocol: r900
+    name: water_meter
+    format: "#####.##"
+    unit_of_measurement: ft3
+    icon: mdi:water
+    device_class: water
+
+  # Electric Meter
+  # Protocol options: scm, scm+, idm, netidm
+  - id: YOUR_ELECTRIC_METER_ID
+    protocol: scm
+    name: electric_meter
+    format: "######"
+    unit_of_measurement: kWh
+    icon: mdi:meter-electric
+    device_class: energy

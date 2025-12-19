@@ -1,0 +1,64 @@
+# Greenhouse Temperature Sensor
+# ESP32-C3 + BME280 for Home Assistant via ESPHome
+#
+# Full tutorial: https://metrowestsmarthome.com/2025/02/21/greenhouse-temperature-sensor/
+#
+# Replace all YOUR_* placeholders with your actual values
+
+substitutions:
+  name: greenhouse-sensor
+  friendly_name: Greenhouse Sensor
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: seeed_xiao_esp32c3
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "YOUR_API_KEY"
+
+# Allow Over-The-Air updates
+ota:
+  platform: esphome
+  password: "YOUR_OTA_PASSWORD"
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: "YOUR_FALLBACK_PASSWORD"
+
+captive_portal:
+
+# I2C bus for BME280
+i2c:
+  sda: GPIO07
+  scl: GPIO06
+  scan: true
+  id: bus_a
+
+# BME280 Temperature, Humidity, Pressure sensor
+sensor:
+  - platform: bme280_i2c
+    temperature:
+      name: "Temperature"
+      oversampling: 16x
+    pressure:
+      name: "Pressure"
+    humidity:
+      name: "Humidity"
+    update_interval: 60s
+    i2c_id: bus_a
+    address: 0x76

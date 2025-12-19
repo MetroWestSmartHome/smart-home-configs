@@ -1,0 +1,126 @@
+# Renogy Solar MQTT Sensors for Home Assistant
+#
+# Add this to your configuration.yaml or include as a package
+# Full tutorial: https://metrowestsmarthome.com/2025/06/04/greenhouse-solar-monitoring/
+#
+# These sensors read data from the renogy-bt script via MQTT
+# Update the device name/model to match your setup
+
+mqtt:
+  sensor:
+    - name: "Solar Power"
+      state_topic: "solar/state"
+      device_class: "power"
+      unit_of_measurement: "W"
+      value_template: "{{ value_json.pv_power }}"
+      unique_id: "solar_power"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"
+
+    - name: "Solar Voltage"
+      state_topic: "solar/state"
+      device_class: "voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ value_json.pv_voltage }}"
+      unique_id: "solar_voltage"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"
+
+    - name: "Battery SOC"
+      state_topic: "solar/state"
+      device_class: "battery"
+      unit_of_measurement: "%"
+      value_template: "{{ value_json.battery_percentage }}"
+      unique_id: "battery_soc"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"
+
+    - name: "Battery Voltage"
+      state_topic: "solar/state"
+      device_class: "voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ value_json.battery_voltage }}"
+      unique_id: "battery_voltage"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"
+
+    - name: "Daily Solar Generation"
+      state_topic: "solar/state"
+      device_class: "energy"
+      unit_of_measurement: "Wh"
+      value_template: "{{ value_json.power_generation_today }}"
+      unique_id: "daily_generation"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"
+
+    - name: "Controller Temperature"
+      state_topic: "solar/state"
+      device_class: "temperature"
+      unit_of_measurement: "°F"
+      value_template: "{{ value_json.controller_temperature }}"
+      unique_id: "controller_temp"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"
+
+    - name: "Battery Temperature"
+      state_topic: "solar/state"
+      device_class: "temperature"
+      unit_of_measurement: "°F"
+      value_template: "{{ value_json.battery_temperature }}"
+      unique_id: "battery_temp"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"
+
+    - name: "Charging Status"
+      state_topic: "solar/state"
+      value_template: "{{ value_json.charging_status }}"
+      unique_id: "charging_status"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"
+
+    - name: "Charging Amp Hours Today"
+      state_topic: "solar/state"
+      unit_of_measurement: "Ah"
+      value_template: "{{ value_json.charging_amp_hours_today }}"
+      unique_id: "charging_ah_today"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"
+
+    - name: "Total Power Generation"
+      state_topic: "solar/state"
+      device_class: "energy"
+      unit_of_measurement: "Wh"
+      value_template: "{{ value_json.power_generation_total }}"
+      unique_id: "total_generation"
+      device:
+        identifiers: ["YOUR_DEVICE_ID"]
+        name: "Solar Controller"
+        model: "YOUR_CONTROLLER_MODEL"
+        manufacturer: "Renogy"

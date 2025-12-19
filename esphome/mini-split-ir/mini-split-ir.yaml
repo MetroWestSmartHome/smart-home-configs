@@ -1,0 +1,121 @@
+# Mini Split IR Controller
+# Athom IR device for Fujitsu mini split control via ESPHome
+#
+# Full tutorial: https://metrowestsmarthome.com/2025/02/28/making-simple-mini-splits-smarter/
+#
+# Replace all YOUR_* placeholders with your actual values
+
+substitutions:
+  name: mini-split-ir-remote
+  friendly_name: Mini Split IR Remote
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+  name_add_mac_suffix: false
+  project:
+    name: esphome.web
+    version: '1.0'
+
+esp8266:
+  board: esp8285
+  restore_from_flash: true
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "YOUR_API_KEY"
+
+# Allow Over-The-Air updates
+ota:
+  platform: esphome
+
+# Allow provisioning Wi-Fi via serial
+improv_serial:
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+
+captive_portal:
+
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} WiFi Signal"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "${friendly_name} Uptime"
+
+  # Pull temperature from existing Home Assistant sensor
+  # Update entity_id to match your room's thermostat/temperature sensor
+  - platform: homeassistant
+    id: ha_temperature
+    name: "Room Temperature"
+    entity_id: sensor.YOUR_ROOM_THERMOSTAT_TEMPERATURE
+
+  # Convert to Celsius for climate component
+  - platform: template
+    id: room_temp_celsius
+    lambda: !lambda |-
+      return (id(ha_temperature).state - 32) * 5/9;
+    update_interval: 30s
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "${friendly_name} IP Address"
+      disabled_by_default: true
+    ssid:
+      name: "${friendly_name} SSID"
+    bssid:
+      name: "${friendly_name} BSSID"
+    mac_address:
+      name: "${friendly_name} Mac Wifi Address"
+
+switch:
+  - platform: restart
+    name: "${friendly_name} restart"
+
+binary_sensor:
+  - platform: status
+    name: "${friendly_name} IR Status"
+
+  - platform: gpio
+    pin: GPIO0
+    id: physical_button
+
+status_led:
+  pin: GPIO13
+
+remote_transmitter:
+  pin:
+    number: GPIO4
+  carrier_duty_percent: 50%
+
+remote_receiver:
+  id: ir_receiver
+  pin:
+    number: GPIO5
+    inverted: true
+    mode:
+      input: true
+      pullup: true
+  # high 55% tolerance is recommended for some remote control units
+  tolerance: 55%
+
+# Fujitsu mini split climate control
+# For other brands, see: https://esphome.io/components/climate/climate_ir
+climate:
+  - platform: fujitsu_general
+    name: "Mini Split"
+    receiver_id: ir_receiver
+    sensor: room_temp_celsius
+    visual:
+      temperature_step: 1.0
+      min_temperature: 10
+      max_temperature: 36

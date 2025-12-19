@@ -1,0 +1,23 @@
+# Secrets - never commit actual credentials
+secrets.yaml
+*secrets*
+*.secret
+
+# Local testing files
+*.local.yaml
+*.test.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Claude Code files
+CLAUDE.md
+.claude/
