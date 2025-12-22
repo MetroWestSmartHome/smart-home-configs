@@ -1,0 +1,104 @@
+# Universal Remote Dashboard - Configuration
+#
+# Full tutorial: https://metrowestsmarthome.com/2025/12/22/home-assistant-remote-dashboard/
+#
+# Add these to your configuration.yaml
+
+# =============================================================================
+# INPUT HELPERS
+# =============================================================================
+
+input_select:
+  remote_device:
+    name: Remote Device
+    options:
+      - "YOUR_LIVING_ROOM_TV"
+      - "YOUR_BEDROOM_TV"
+      - "YOUR_KITCHEN_SPEAKER"
+      - "YOUR_OFFICE_SPEAKER"
+    initial: "YOUR_LIVING_ROOM_TV"
+    icon: mdi:remote-tv
+
+# =============================================================================
+# TEMPLATE SENSORS
+# =============================================================================
+
+template:
+  - sensor:
+      # Detects which device is currently playing media
+      - name: "Remote Active Device"
+        unique_id: remote_active_device
+        state: >
+          {% set devices = [
+            ('YOUR_LIVING_ROOM_TV', 'media_player.YOUR_LIVING_ROOM_TV'),
+            ('YOUR_BEDROOM_TV', 'media_player.YOUR_BEDROOM_TV'),
+            ('YOUR_KITCHEN_SPEAKER', 'media_player.YOUR_KITCHEN_SPEAKER'),
+            ('YOUR_OFFICE_SPEAKER', 'media_player.YOUR_OFFICE_SPEAKER')
+          ] %}
+          {# Map Spotify source names to your device names (for Spotify Connect) #}
+          {% set spotify_source_map = {
+            'Kitchen speaker': 'YOUR_KITCHEN_SPEAKER',
+            'Office speaker': 'YOUR_OFFICE_SPEAKER'
+          } %}
+          {% set active_states = ['playing', 'paused', 'buffering'] %}
+          {% set playing = namespace(device=none) %}
+          {# Check media players directly first #}
+          {% for name, entity in devices %}
+            {% set state = states(entity) %}
+            {% set has_media = state_attr(entity, 'media_title') not in [none, '', 'unknown'] %}
+            {% if playing.device is none %}
+              {% if state in active_states %}
+                {% set playing.device = name %}
+              {% elif state == 'idle' and has_media %}
+                {% set playing.device = name %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {# Fallback: check Spotify Connect source for speakers #}
+          {% if playing.device is none and states('media_player.spotify_YOUR_USERNAME') in active_states %}
+            {% set spotify_source = state_attr('media_player.spotify_YOUR_USERNAME', 'source') %}
+            {% if spotify_source in spotify_source_map %}
+              {% set playing.device = spotify_source_map[spotify_source] %}
+            {% endif %}
+          {% endif %}
+          {{ playing.device if playing.device else 'none' }}
+        icon: mdi:play-circle
+
+      # Shows what's currently playing (optional, for Now Playing display)
+      - name: "Remote Now Playing Title"
+        unique_id: remote_now_playing_title
+        state: >
+          {% set device = states('input_select.remote_device') %}
+          {% set entity_map = {
+            'YOUR_LIVING_ROOM_TV': 'media_player.YOUR_LIVING_ROOM_TV',
+            'YOUR_BEDROOM_TV': 'media_player.YOUR_BEDROOM_TV',
+            'YOUR_KITCHEN_SPEAKER': 'media_player.YOUR_KITCHEN_SPEAKER',
+            'YOUR_OFFICE_SPEAKER': 'media_player.YOUR_OFFICE_SPEAKER'
+          } %}
+          {% set entity = entity_map.get(device) %}
+          {% if entity %}
+            {% set title = state_attr(entity, 'media_title') %}
+            {{ title if title and title not in ['unknown', 'unavailable', ''] else 'Not Playing' }}
+          {% else %}
+            Not Playing
+          {% endif %}
+        icon: mdi:music
+
+      - name: "Remote Now Playing App"
+        unique_id: remote_now_playing_app
+        state: >
+          {% set device = states('input_select.remote_device') %}
+          {% set entity_map = {
+            'YOUR_LIVING_ROOM_TV': 'media_player.YOUR_LIVING_ROOM_TV',
+            'YOUR_BEDROOM_TV': 'media_player.YOUR_BEDROOM_TV',
+            'YOUR_KITCHEN_SPEAKER': 'media_player.YOUR_KITCHEN_SPEAKER',
+            'YOUR_OFFICE_SPEAKER': 'media_player.YOUR_OFFICE_SPEAKER'
+          } %}
+          {% set entity = entity_map.get(device) %}
+          {% if entity %}
+            {% set app = state_attr(entity, 'app_name') %}
+            {{ app if app and app not in ['unknown', 'unavailable', ''] else '' }}
+          {% else %}
+
+          {% endif %}
+        icon: mdi:application

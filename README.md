@@ -10,6 +10,7 @@ Open source Home Assistant, ESPHome, and smart home configurations from [metrowe
 | `esphome/mini-split-ir/` | Athom IR controller for Fujitsu mini splits | [Making Simple Mini Splits Smarter](https://metrowestsmarthome.com/2025/02/28/esphome-mini-split-control/) |
 | `home-assistant/solar-monitoring/` | MQTT sensors for Renogy solar via BT-1 | [Greenhouse Solar Monitoring](https://metrowestsmarthome.com/2025/06/04/greenhouse-solar-monitoring/) |
 | `home-assistant/energy-monitoring/` | rtlamr2mqtt meter reading config | [Monitoring Energy Usage](https://metrowestsmarthome.com/2025/04/09/home-assistant-energy-monitoring/) |
+| `home-assistant/remote-dashboard/` | Universal remote control dashboard | [Universal Remote Dashboard](https://metrowestsmarthome.com/2025/12/22/home-assistant-remote-dashboard/) |
 
 ## Getting Started
 

@@ -1,0 +1,21 @@
+# Universal Remote Dashboard - Automations
+#
+# Full tutorial: https://metrowestsmarthome.com/2025/12/22/home-assistant-remote-dashboard/
+#
+# Add these to your automations.yaml
+
+# Auto-select the device that starts playing
+- id: remote_auto_select_playing_device
+  alias: "Remote: Auto-Select Playing Device"
+  trigger:
+    - platform: state
+      entity_id: sensor.remote_active_device
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != 'none' }}"
+  action:
+    - service: input_select.select_option
+      target:
+        entity_id: input_select.remote_device
+      data:
+        option: "{{ trigger.to_state.state }}"

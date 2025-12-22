@@ -1,0 +1,271 @@
+# Universal Remote Dashboard
+#
+# Full tutorial: https://metrowestsmarthome.com/2025/12/22/home-assistant-remote-dashboard/
+#
+# Requirements:
+# - Universal Remote Card (HACS): https://github.com/Nerwyn/universal-remote-card
+# - card-mod (HACS) for Now Playing marquee (optional)
+# - custom-brand-icons (HACS) for streaming app icons (optional)
+
+title: Remote Control
+icon: mdi:remote-tv
+path: remote
+
+cards:
+  # ==========================================================================
+  # DEVICE SELECTOR
+  # ==========================================================================
+  - type: entities
+    title: Device Selector
+    show_header_toggle: false
+    entities:
+      - entity: input_select.remote_device
+        name: Device
+
+  # ==========================================================================
+  # NOW PLAYING (Optional - requires card-mod for marquee effect)
+  # Shows "App: Title" with scrolling marquee if text is too long
+  # ==========================================================================
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: sensor.remote_now_playing_title
+        state_not: "Not Playing"
+    card:
+      type: markdown
+      content: >
+        {% set app = states('sensor.remote_now_playing_app') %}
+        {% set title = states('sensor.remote_now_playing_title') %}
+        {% if app and app not in ['unknown', 'unavailable', ''] and title and title not in ['unknown', 'unavailable', 'Not Playing', ''] %}
+        {{ app }}: {{ title }}
+        {% elif title and title not in ['unknown', 'unavailable', 'Not Playing', ''] %}
+        {{ title }}
+        {% elif app and app not in ['unknown', 'unavailable', ''] %}
+        {{ app }}
+        {% else %}
+        Not Playing
+        {% endif %}
+      card_mod:
+        style: |
+          ha-card {
+            background: none;
+            border: none;
+            box-shadow: none;
+            padding: 0 16px;
+          }
+          ha-markdown {
+            overflow: hidden;
+          }
+          ha-markdown p {
+            margin: 0;
+            font-size: 1.1em;
+            font-weight: 500;
+            white-space: nowrap;
+            display: inline-block;
+            animation: marquee 12s linear infinite;
+            animation-play-state: var(--marquee-play, paused);
+          }
+          ha-card:hover ha-markdown p {
+            --marquee-play: running;
+          }
+          @keyframes marquee {
+            0% { transform: translateX(0%); }
+            10% { transform: translateX(0%); }
+            90% { transform: translateX(calc(-100% + 100cqw)); }
+            100% { transform: translateX(calc(-100% + 100cqw)); }
+          }
+
+  # ==========================================================================
+  # TV REMOTE EXAMPLE (with backlight toggle)
+  # Duplicate and modify for each TV
+  # ==========================================================================
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: input_select.remote_device
+        state: YOUR_LIVING_ROOM_TV
+    card:
+      type: custom:universal-remote-card
+      remote_id: remote.YOUR_TV_REMOTE
+      media_player_id: media_player.YOUR_TV
+      keyboard_id: remote.YOUR_TV_REMOTE
+      platform: Android TV
+      autofill_entity_id: true
+      haptics: true
+      rows:
+        - - power
+          - backlight
+        - - youtube_tv
+          - netflix
+          - hulu_custom
+          - disney
+          - peacock
+          - youtube
+        - circlepad
+        - - volume_mute
+          - volume_slider
+        - - back
+          - keyboard
+          - play_pause
+          - home
+      custom_actions:
+        # Backlight toggle (remove if your TV doesn't have LED backlights)
+        - name: backlight
+          type: button
+          icon: mdi:television-ambient-light
+          tap_action:
+            action: perform-action
+            perform_action: light.toggle
+            target:
+              entity_id: light.YOUR_TV_BACKLIGHT
+        # Hulu with better icon
+        - name: hulu_custom
+          type: button
+          icon: phu:hulu
+          tap_action:
+            action: key
+            key: hulu
+        # YouTube TV
+        - name: youtube_tv
+          type: button
+          icon: mdi:youtube-tv
+          tap_action:
+            action: key
+            key: youtube_tv
+        # Peacock (not built-in, needs package name)
+        - name: peacock
+          type: button
+          icon: phu:peacock
+          tap_action:
+            action: perform-action
+            perform_action: remote.turn_on
+            target:
+              entity_id: remote.YOUR_TV_REMOTE
+            data:
+              activity: com.peacocktv.peacockandroid
+        # Volume slider
+        - name: volume_slider
+          type: slider
+          label: Volume
+
+  # ==========================================================================
+  # TV REMOTE EXAMPLE (without backlight)
+  # For TVs that don't have LED backlights
+  # ==========================================================================
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: input_select.remote_device
+        state: YOUR_BEDROOM_TV
+    card:
+      type: custom:universal-remote-card
+      remote_id: remote.YOUR_BEDROOM_TV_REMOTE
+      media_player_id: media_player.YOUR_BEDROOM_TV
+      keyboard_id: remote.YOUR_BEDROOM_TV_REMOTE
+      platform: Android TV
+      autofill_entity_id: true
+      haptics: true
+      rows:
+        - power  # Single element, not a row array
+        - - youtube_tv
+          - netflix
+          - hulu_custom
+          - disney
+          - peacock
+          - youtube
+        - circlepad
+        - - volume_mute
+          - volume_slider
+        - - back
+          - keyboard
+          - play_pause
+          - home
+      custom_actions:
+        - name: hulu_custom
+          type: button
+          icon: phu:hulu
+          tap_action:
+            action: key
+            key: hulu
+        - name: youtube_tv
+          type: button
+          icon: mdi:youtube-tv
+          tap_action:
+            action: key
+            key: youtube_tv
+        - name: peacock
+          type: button
+          icon: phu:peacock
+          tap_action:
+            action: perform-action
+            perform_action: remote.turn_on
+            target:
+              entity_id: remote.YOUR_BEDROOM_TV_REMOTE
+            data:
+              activity: com.peacocktv.peacockandroid
+        - name: volume_slider
+          type: slider
+          label: Volume
+
+  # ==========================================================================
+  # SPEAKER REMOTE EXAMPLE
+  # Uses native media-control card + button grid
+  # ==========================================================================
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: input_select.remote_device
+        state: "YOUR_KITCHEN_SPEAKER"
+    card:
+      type: vertical-stack
+      cards:
+        - type: media-control
+          entity: media_player.YOUR_KITCHEN_SPEAKER
+        - square: false
+          columns: 3
+          type: grid
+          cards:
+            - type: button
+              icon: mdi:skip-previous
+              tap_action:
+                action: perform-action
+                perform_action: media_player.media_previous_track
+                target:
+                  entity_id: media_player.YOUR_KITCHEN_SPEAKER
+            - type: button
+              icon: mdi:play-pause
+              tap_action:
+                action: perform-action
+                perform_action: media_player.media_play_pause
+                target:
+                  entity_id: media_player.YOUR_KITCHEN_SPEAKER
+            - type: button
+              icon: mdi:skip-next
+              tap_action:
+                action: perform-action
+                perform_action: media_player.media_next_track
+                target:
+                  entity_id: media_player.YOUR_KITCHEN_SPEAKER
+            - type: button
+              icon: mdi:volume-off
+              tap_action:
+                action: perform-action
+                perform_action: media_player.volume_mute
+                data:
+                  is_volume_muted: true
+                target:
+                  entity_id: media_player.YOUR_KITCHEN_SPEAKER
+            - type: button
+              icon: mdi:volume-medium
+              tap_action:
+                action: perform-action
+                perform_action: media_player.volume_down
+                target:
+                  entity_id: media_player.YOUR_KITCHEN_SPEAKER
+            - type: button
+              icon: mdi:volume-high
+              tap_action:
+                action: perform-action
+                perform_action: media_player.volume_up
+                target:
+                  entity_id: media_player.YOUR_KITCHEN_SPEAKER
