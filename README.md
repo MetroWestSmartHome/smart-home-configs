@@ -7,9 +7,9 @@ Open source Home Assistant, ESPHome, and smart home configurations from [metrowe
 | Folder | Description | Blog Post |
 |--------|-------------|-----------|
 | `esphome/greenhouse-sensor/` | ESP32-C3 + BME280 temperature/humidity sensor | [Greenhouse Temperature Sensor](https://metrowestsmarthome.com/2025/02/21/greenhouse-temperature-sensor/) |
-| `esphome/mini-split-ir/` | Athom IR controller for Fujitsu mini splits | [Making Simple Mini Splits Smarter](https://metrowestsmarthome.com/2025/02/28/making-simple-mini-splits-smarter/) |
+| `esphome/mini-split-ir/` | Athom IR controller for Fujitsu mini splits | [Making Simple Mini Splits Smarter](https://metrowestsmarthome.com/2025/02/28/esphome-mini-split-control/) |
 | `home-assistant/solar-monitoring/` | MQTT sensors for Renogy solar via BT-1 | [Greenhouse Solar Monitoring](https://metrowestsmarthome.com/2025/06/04/greenhouse-solar-monitoring/) |
-| `home-assistant/energy-monitoring/` | rtlamr2mqtt meter reading config | [Monitoring Energy Usage](https://metrowestsmarthome.com/2025/04/09/monitoring-energy-usage-in-home-assistant/) |
+| `home-assistant/energy-monitoring/` | rtlamr2mqtt meter reading config | [Monitoring Energy Usage](https://metrowestsmarthome.com/2025/04/09/home-assistant-energy-monitoring/) |
 
 ## Getting Started
 

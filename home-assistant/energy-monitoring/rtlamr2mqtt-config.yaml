@@ -1,7 +1,7 @@
 # rtlamr2mqtt Configuration
 #
 # For use with: https://github.com/allangood/rtlamr2mqtt
-# Full tutorial: https://metrowestsmarthome.com/2025/04/09/monitoring-energy-usage-in-home-assistant/
+# Full tutorial: https://metrowestsmarthome.com/2025/04/09/home-assistant-energy-monitoring/
 #
 # Replace meter IDs with your actual meter IDs
 # Check your physical meters and add-on logs to find the correct IDs

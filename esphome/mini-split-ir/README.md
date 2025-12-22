@@ -9,7 +9,7 @@ Control IR-only Fujitsu mini splits from Home Assistant using an Athom IR device
 - Temperature sensor in same room (thermostat, Ecobee sensor, or BME280)
 - Clear line of sight between IR device and mini split
 
-See the [full tutorial](https://metrowestsmarthome.com/2025/02/28/making-simple-mini-splits-smarter/) for product links and detailed instructions.
+See the [full tutorial](https://metrowestsmarthome.com/2025/02/28/esphome-mini-split-control/) for product links and detailed instructions.
 
 ## Supported Mini Splits
 
@@ -29,4 +29,4 @@ The Athom IR device doesn't have a built-in temperature sensor. This config pull
 
 ## Full Tutorial
 
-[Making Simple Mini Splits Smarter - MetroWest SmartHome](https://metrowestsmarthome.com/2025/02/28/making-simple-mini-splits-smarter/)
+[Making Simple Mini Splits Smarter - MetroWest SmartHome](https://metrowestsmarthome.com/2025/02/28/esphome-mini-split-control/)

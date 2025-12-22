@@ -9,7 +9,7 @@ Read your electric and water meter broadcasts directly into Home Assistant using
 - Home Assistant with MQTT broker configured
 - Compatible electric/water meter (see [compatible meters list](https://github.com/bemasher/rtlamr/wiki/Compatible-Meters))
 
-See the [full tutorial](https://metrowestsmarthome.com/2025/04/09/monitoring-energy-usage-in-home-assistant/) for product links and detailed instructions.
+See the [full tutorial](https://metrowestsmarthome.com/2025/04/09/home-assistant-energy-monitoring/) for product links and detailed instructions.
 
 ## What's Included
 
@@ -32,4 +32,4 @@ See the [full tutorial](https://metrowestsmarthome.com/2025/04/09/monitoring-ene
 
 ## Full Tutorial
 
-[Monitoring Energy Usage in Home Assistant - MetroWest SmartHome](https://metrowestsmarthome.com/2025/04/09/monitoring-energy-usage-in-home-assistant/)
+[Monitoring Energy Usage in Home Assistant - MetroWest SmartHome](https://metrowestsmarthome.com/2025/04/09/home-assistant-energy-monitoring/)
