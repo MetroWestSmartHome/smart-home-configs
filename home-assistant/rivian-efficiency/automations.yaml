@@ -1,0 +1,355 @@
+# Rivian Efficiency Tracking - Automations
+# Full Tutorial: https://metrowestsmarthome.com/rivian-home-assistant/
+#
+# Replace all YOUR_* placeholders with your actual values:
+# - YOUR_RIVIAN: Your Rivian entity prefix (e.g., "rivnit" or "rivian_r1t")
+# - YOUR_CHARGER: Your EV charger entity prefix (e.g., "tesla_wall_connector")
+
+# =============================================================================
+# TRIP TRACKING - Start
+# Records odometer and battery when driving begins
+# =============================================================================
+- id: rivian_trip_start
+  alias: 'RIVIAN: Trip Start'
+  description: Record starting values when vehicle enters Go (driving) state
+  trigger:
+  - platform: state
+    entity_id: sensor.YOUR_RIVIAN_power_state
+    to: Go
+  condition:
+  - condition: state
+    entity_id: sensor.YOUR_RIVIAN_service_mode
+    state: 'off'
+  # Prevent re-triggering after HA restart if trip already in progress
+  - condition: state
+    entity_id: input_boolean.rivian_trip_in_progress
+    state: 'off'
+  action:
+  # Mark trip as in progress FIRST (survives restart)
+  - service: input_boolean.turn_on
+    entity_id: input_boolean.rivian_trip_in_progress
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_trip_start_odometer
+    data:
+      value: '{{ states(''sensor.YOUR_RIVIAN_odometer'') | float(0) }}'
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_trip_start_kwh
+    data:
+      value: '{{ states(''sensor.YOUR_RIVIAN_battery_capacity'') | float(0) }}'
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_trip_start_timestamp
+    data:
+      value: '{{ as_timestamp(now()) }}'
+  mode: single
+
+# =============================================================================
+# TRIP TRACKING - End
+# Calculates efficiency and updates temperature-band running totals
+# =============================================================================
+- id: rivian_trip_end
+  alias: 'RIVIAN: Trip End'
+  description: Calculate efficiency, update running totals, and recalculate baseline
+  trigger:
+  - platform: state
+    entity_id: sensor.YOUR_RIVIAN_power_state
+    from: Go
+    for:
+      seconds: 30
+  condition:
+  - condition: state
+    entity_id: sensor.YOUR_RIVIAN_service_mode
+    state: 'off'
+  # Only process trips >= 0.5 miles
+  - condition: template
+    value_template: >
+      {% set start_odo = states('input_number.rivian_trip_start_odometer') | float(0) %}
+      {% set end_odo = states('sensor.YOUR_RIVIAN_odometer') | float(0) %}
+      {{ (end_odo - start_odo) >= 0.5 }}
+  action:
+  # Clear in-progress flag FIRST (even if calculations fail)
+  - service: input_boolean.turn_off
+    entity_id: input_boolean.rivian_trip_in_progress
+  - variables:
+      start_odo: '{{ states(''input_number.rivian_trip_start_odometer'') | float(0) }}'
+      end_odo: '{{ states(''sensor.YOUR_RIVIAN_odometer'') | float(0) }}'
+      start_kwh: '{{ states(''input_number.rivian_trip_start_kwh'') | float(0) }}'
+      end_kwh: '{{ states(''sensor.YOUR_RIVIAN_battery_capacity'') | float(0) }}'
+      distance: '{{ end_odo - start_odo }}'
+      kwh_used: '{{ start_kwh - end_kwh }}'
+      efficiency: '{{ distance / kwh_used if kwh_used > 0 else 0 }}'
+      temp: '{{ states(''sensor.YOUR_RIVIAN_outside_temperature'') | float(50) }}'
+      temp_band: >
+        {% if temp < 32 %}cold
+        {% elif temp < 50 %}cool
+        {% elif temp < 70 %}mild
+        {% else %}warm{% endif %}
+  # Store last trip values
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_last_trip_distance
+    data:
+      value: '{{ distance | round(2) }}'
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_last_trip_kwh
+    data:
+      value: '{{ kwh_used | round(2) }}'
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_last_trip_efficiency
+    data:
+      value: '{{ efficiency | round(2) }}'
+  # Update running totals for temperature band (only if valid trip data)
+  - condition: template
+    value_template: '{{ kwh_used > 0 and distance > 0 }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ temp_band == ''cold'' }}'
+      sequence:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_total_miles_cold
+        data:
+          value: '{{ states(''input_number.rivian_total_miles_cold'') | float(0) + distance }}'
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_total_kwh_cold
+        data:
+          value: '{{ states(''input_number.rivian_total_kwh_cold'') | float(0) + kwh_used }}'
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_baseline_cold
+        data:
+          value: >
+            {% set new_miles = states('input_number.rivian_total_miles_cold') | float(0) + distance %}
+            {% set new_kwh = states('input_number.rivian_total_kwh_cold') | float(0) + kwh_used %}
+            {{ (new_miles / new_kwh) | round(2) if new_kwh > 0 else 2.0 }}
+    - conditions:
+      - condition: template
+        value_template: '{{ temp_band == ''cool'' }}'
+      sequence:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_total_miles_cool
+        data:
+          value: '{{ states(''input_number.rivian_total_miles_cool'') | float(0) + distance }}'
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_total_kwh_cool
+        data:
+          value: '{{ states(''input_number.rivian_total_kwh_cool'') | float(0) + kwh_used }}'
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_baseline_cool
+        data:
+          value: >
+            {% set new_miles = states('input_number.rivian_total_miles_cool') | float(0) + distance %}
+            {% set new_kwh = states('input_number.rivian_total_kwh_cool') | float(0) + kwh_used %}
+            {{ (new_miles / new_kwh) | round(2) if new_kwh > 0 else 2.2 }}
+    - conditions:
+      - condition: template
+        value_template: '{{ temp_band == ''mild'' }}'
+      sequence:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_total_miles_mild
+        data:
+          value: '{{ states(''input_number.rivian_total_miles_mild'') | float(0) + distance }}'
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_total_kwh_mild
+        data:
+          value: '{{ states(''input_number.rivian_total_kwh_mild'') | float(0) + kwh_used }}'
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_baseline_mild
+        data:
+          value: >
+            {% set new_miles = states('input_number.rivian_total_miles_mild') | float(0) + distance %}
+            {% set new_kwh = states('input_number.rivian_total_kwh_mild') | float(0) + kwh_used %}
+            {{ (new_miles / new_kwh) | round(2) if new_kwh > 0 else 2.4 }}
+    - conditions:
+      - condition: template
+        value_template: '{{ temp_band == ''warm'' }}'
+      sequence:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_total_miles_warm
+        data:
+          value: '{{ states(''input_number.rivian_total_miles_warm'') | float(0) + distance }}'
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_total_kwh_warm
+        data:
+          value: '{{ states(''input_number.rivian_total_kwh_warm'') | float(0) + kwh_used }}'
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rivian_baseline_warm
+        data:
+          value: >
+            {% set new_miles = states('input_number.rivian_total_miles_warm') | float(0) + distance %}
+            {% set new_kwh = states('input_number.rivian_total_kwh_warm') | float(0) + kwh_used %}
+            {{ (new_miles / new_kwh) | round(2) if new_kwh > 0 else 2.5 }}
+  mode: single
+
+# =============================================================================
+# IDLE DRAIN TRACKING - Start
+# Records battery level when vehicle enters sleep mode
+# =============================================================================
+- id: rivian_idle_start
+  alias: 'RIVIAN: Idle Drain Start'
+  description: Record starting battery when vehicle enters sleep mode
+  trigger:
+  - platform: state
+    entity_id: sensor.YOUR_RIVIAN_power_state
+    to: Sleep
+    for:
+      minutes: 5
+  condition:
+  - condition: state
+    entity_id: sensor.YOUR_RIVIAN_service_mode
+    state: 'off'
+  - condition: state
+    entity_id: binary_sensor.YOUR_RIVIAN_charging_status
+    state: 'off'
+  # Prevent re-triggering after HA restart if idle already in progress
+  - condition: state
+    entity_id: input_boolean.rivian_idle_in_progress
+    state: 'off'
+  action:
+  # Mark idle as in progress FIRST (survives restart)
+  - service: input_boolean.turn_on
+    entity_id: input_boolean.rivian_idle_in_progress
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_idle_start_kwh
+    data:
+      value: '{{ states(''sensor.YOUR_RIVIAN_battery_capacity'') | float(0) }}'
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_idle_start_timestamp
+    data:
+      value: '{{ as_timestamp(now()) }}'
+  mode: single
+
+# =============================================================================
+# IDLE DRAIN TRACKING - End
+# Calculates drain rate when vehicle wakes up or starts charging
+# =============================================================================
+- id: rivian_idle_end
+  alias: 'RIVIAN: Idle Drain End'
+  description: Calculate drain rate when idle session ends
+  trigger:
+  - platform: state
+    entity_id: sensor.YOUR_RIVIAN_power_state
+    from: Sleep
+  - platform: state
+    entity_id: binary_sensor.YOUR_RIVIAN_charging_status
+    to: 'on'
+  condition:
+  - condition: state
+    entity_id: sensor.YOUR_RIVIAN_service_mode
+    state: 'off'
+  # Only process if idle was at least 1 hour
+  - condition: template
+    value_template: >
+      {% set start_time = states('input_number.rivian_idle_start_timestamp') | float(0) %}
+      {% set now_time = as_timestamp(now()) %}
+      {% set hours = (now_time - start_time) / 3600 %}
+      {{ hours > 1 }}
+  action:
+  # Clear in-progress flag FIRST (even if calculations fail)
+  - service: input_boolean.turn_off
+    entity_id: input_boolean.rivian_idle_in_progress
+  - variables:
+      start_kwh: '{{ states(''input_number.rivian_idle_start_kwh'') | float(0) }}'
+      end_kwh: '{{ states(''sensor.YOUR_RIVIAN_battery_capacity'') | float(0) }}'
+      start_time: '{{ states(''input_number.rivian_idle_start_timestamp'') | float(0) }}'
+      now_time: '{{ as_timestamp(now()) }}'
+      kwh_lost: '{{ [start_kwh - end_kwh, 0] | max }}'
+      hours_idle: '{{ (now_time - start_time) / 3600 }}'
+      drain_rate: '{{ kwh_lost / hours_idle if hours_idle > 0 else 0 }}'
+      temp: '{{ states(''sensor.YOUR_RIVIAN_outside_temperature'') | float(50) }}'
+      temp_band: >
+        {% if temp < 32 %}cold
+        {% elif temp < 50 %}cool
+        {% elif temp < 70 %}mild
+        {% else %}warm{% endif %}
+  # Store last idle values
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_last_idle_hours
+    data:
+      value: '{{ hours_idle | round(1) }}'
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_last_idle_drain_rate
+    data:
+      value: '{{ drain_rate | round(3) }}'
+  mode: single
+
+# =============================================================================
+# HA RESTART RECOVERY
+# Resets orphaned in-progress flags after Home Assistant restarts
+# =============================================================================
+- id: rivian_restart_recovery
+  alias: 'RIVIAN: Restart Recovery'
+  description: Reset orphaned in-progress flags after HA restart
+  trigger:
+  - platform: homeassistant
+    event: start
+  action:
+  # Wait for entities to be available after restart
+  - delay:
+      seconds: 30
+  # Check for orphaned trip (flag ON but not driving)
+  - if:
+    - condition: state
+      entity_id: input_boolean.rivian_trip_in_progress
+      state: 'on'
+    - condition: template
+      value_template: "{{ states('sensor.YOUR_RIVIAN_power_state') != 'Go' }}"
+    then:
+    - service: input_boolean.turn_off
+      entity_id: input_boolean.rivian_trip_in_progress
+    - service: logbook.log
+      data:
+        name: "Rivian Tracking"
+        message: "Trip tracking reset after restart - data from interrupted trip was lost"
+        entity_id: input_boolean.rivian_trip_in_progress
+  # Check for orphaned idle (flag ON but not sleeping)
+  - if:
+    - condition: state
+      entity_id: input_boolean.rivian_idle_in_progress
+      state: 'on'
+    - condition: template
+      value_template: "{{ states('sensor.YOUR_RIVIAN_power_state') != 'Sleep' }}"
+    then:
+    - service: input_boolean.turn_off
+      entity_id: input_boolean.rivian_idle_in_progress
+    - service: logbook.log
+      data:
+        name: "Rivian Tracking"
+        message: "Idle tracking reset after restart - data from interrupted session was lost"
+        entity_id: input_boolean.rivian_idle_in_progress
+  # Check for orphaned charge (flag ON but not charging)
+  - if:
+    - condition: state
+      entity_id: input_boolean.rivian_charge_in_progress
+      state: 'on'
+    - condition: state
+      entity_id: binary_sensor.YOUR_RIVIAN_charging_status
+      state: 'off'
+    then:
+    - service: input_boolean.turn_off
+      entity_id: input_boolean.rivian_charge_in_progress
+    - service: logbook.log
+      data:
+        name: "Rivian Tracking"
+        message: "Charge tracking reset after restart - data from interrupted session was lost"
+        entity_id: input_boolean.rivian_charge_in_progress
+  mode: single

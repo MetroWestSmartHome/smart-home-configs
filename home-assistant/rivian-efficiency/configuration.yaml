@@ -1,0 +1,313 @@
+# Rivian Efficiency Tracking - Configuration
+# Full Tutorial: https://metrowestsmarthome.com/rivian-home-assistant/
+#
+# Replace all YOUR_* placeholders with your actual values:
+# - YOUR_RIVIAN: Your Rivian entity prefix (e.g., "rivnit" or "rivian_r1t")
+
+# =============================================================================
+# INPUT HELPERS - Trip Tracking
+# NOTE: No 'initial:' on start helpers - values must persist through HA restart
+# =============================================================================
+input_number:
+  # Trip start values (recorded when driving begins)
+  rivian_trip_start_odometer:
+    name: "Trip Start Odometer"
+    min: 0
+    max: 500000
+    step: 0.1
+    unit_of_measurement: "mi"
+    icon: mdi:counter
+
+  rivian_trip_start_kwh:
+    name: "Trip Start Battery kWh"
+    min: 0
+    max: 200
+    step: 0.01
+    unit_of_measurement: "kWh"
+    icon: mdi:battery
+
+  rivian_trip_start_timestamp:
+    name: "Trip Start Timestamp"
+    min: 0
+    max: 9999999999
+    step: 1
+    icon: mdi:clock-start
+
+  # Last trip results
+  rivian_last_trip_efficiency:
+    name: "Last Trip Efficiency"
+    min: 0
+    max: 10
+    step: 0.01
+    unit_of_measurement: "mi/kWh"
+    icon: mdi:gauge
+
+  rivian_last_trip_distance:
+    name: "Last Trip Distance"
+    min: 0
+    max: 1000
+    step: 0.1
+    unit_of_measurement: "mi"
+    icon: mdi:map-marker-distance
+
+  rivian_last_trip_kwh:
+    name: "Last Trip kWh Consumed"
+    min: 0
+    max: 200
+    step: 0.1
+    unit_of_measurement: "kWh"
+    icon: mdi:lightning-bolt
+
+# =============================================================================
+# INPUT HELPERS - Temperature Band Running Totals
+# These accumulate over time for true mile-weighted averages
+# =============================================================================
+  # Cold weather (<32°F)
+  rivian_total_miles_cold:
+    name: "Total Miles <32°F"
+    min: 0
+    max: 1000000
+    step: 0.01
+    unit_of_measurement: "mi"
+    icon: mdi:road-variant
+
+  rivian_total_kwh_cold:
+    name: "Total kWh <32°F"
+    min: 0
+    max: 500000
+    step: 0.01
+    unit_of_measurement: "kWh"
+    icon: mdi:lightning-bolt
+
+  # Cool weather (32-50°F)
+  rivian_total_miles_cool:
+    name: "Total Miles 32-50°F"
+    min: 0
+    max: 1000000
+    step: 0.01
+    unit_of_measurement: "mi"
+    icon: mdi:road-variant
+
+  rivian_total_kwh_cool:
+    name: "Total kWh 32-50°F"
+    min: 0
+    max: 500000
+    step: 0.01
+    unit_of_measurement: "kWh"
+    icon: mdi:lightning-bolt
+
+  # Mild weather (50-70°F)
+  rivian_total_miles_mild:
+    name: "Total Miles 50-70°F"
+    min: 0
+    max: 1000000
+    step: 0.01
+    unit_of_measurement: "mi"
+    icon: mdi:road-variant
+
+  rivian_total_kwh_mild:
+    name: "Total kWh 50-70°F"
+    min: 0
+    max: 500000
+    step: 0.01
+    unit_of_measurement: "kWh"
+    icon: mdi:lightning-bolt
+
+  # Warm weather (>70°F)
+  rivian_total_miles_warm:
+    name: "Total Miles >70°F"
+    min: 0
+    max: 1000000
+    step: 0.01
+    unit_of_measurement: "mi"
+    icon: mdi:road-variant
+
+  rivian_total_kwh_warm:
+    name: "Total kWh >70°F"
+    min: 0
+    max: 500000
+    step: 0.01
+    unit_of_measurement: "kWh"
+    icon: mdi:lightning-bolt
+
+# =============================================================================
+# INPUT HELPERS - Temperature Band Baselines
+# These DO use initial: as configuration defaults
+# =============================================================================
+  rivian_baseline_cold:
+    name: "Baseline Efficiency <32°F"
+    min: 1.5
+    max: 3.5
+    step: 0.01
+    initial: 2.0
+    unit_of_measurement: "mi/kWh"
+    icon: mdi:snowflake
+
+  rivian_baseline_cool:
+    name: "Baseline Efficiency 32-50°F"
+    min: 1.5
+    max: 3.5
+    step: 0.01
+    initial: 2.2
+    unit_of_measurement: "mi/kWh"
+    icon: mdi:thermometer-low
+
+  rivian_baseline_mild:
+    name: "Baseline Efficiency 50-70°F"
+    min: 1.5
+    max: 3.5
+    step: 0.01
+    initial: 2.4
+    unit_of_measurement: "mi/kWh"
+    icon: mdi:thermometer
+
+  rivian_baseline_warm:
+    name: "Baseline Efficiency >70°F"
+    min: 1.5
+    max: 3.5
+    step: 0.01
+    initial: 2.5
+    unit_of_measurement: "mi/kWh"
+    icon: mdi:thermometer-high
+
+# =============================================================================
+# INPUT HELPERS - Idle Drain Tracking
+# =============================================================================
+  rivian_idle_start_kwh:
+    name: "Idle Start Battery kWh"
+    min: 0
+    max: 200
+    step: 0.01
+    unit_of_measurement: "kWh"
+    icon: mdi:battery
+
+  rivian_idle_start_timestamp:
+    name: "Idle Start Timestamp"
+    min: 0
+    max: 9999999999
+    step: 1
+    icon: mdi:clock-start
+
+  rivian_last_idle_drain_rate:
+    name: "Last Idle Drain Rate"
+    min: 0
+    max: 10
+    step: 0.001
+    unit_of_measurement: "kWh/hr"
+    icon: mdi:battery-minus
+
+  rivian_last_idle_hours:
+    name: "Last Idle Duration"
+    min: 0
+    max: 720
+    step: 0.1
+    unit_of_measurement: "hr"
+    icon: mdi:timer
+
+# =============================================================================
+# INPUT BOOLEANS - In-Progress Flags
+# NO initial: - must persist through HA restarts
+# =============================================================================
+input_boolean:
+  rivian_trip_in_progress:
+    name: "Trip In Progress"
+    icon: mdi:car
+
+  rivian_idle_in_progress:
+    name: "Idle Session In Progress"
+    icon: mdi:sleep
+
+  rivian_charge_in_progress:
+    name: "Charging In Progress"
+    icon: mdi:ev-station
+
+# =============================================================================
+# TEMPLATE SENSORS - Display Values
+# =============================================================================
+template:
+  - sensor:
+      - name: "Rivian Efficiency Last Trip"
+        unique_id: rivian_efficiency_last_trip
+        unit_of_measurement: "mi/kWh"
+        state_class: measurement
+        state: "{{ states('input_number.rivian_last_trip_efficiency') | float(0) | round(2) }}"
+        availability: "{{ states('input_number.rivian_last_trip_efficiency') | float(0) > 0 }}"
+        icon: mdi:speedometer
+        attributes:
+          last_trip_distance: "{{ states('input_number.rivian_last_trip_distance') | float(0) | round(2) }} mi"
+          last_trip_kwh: "{{ states('input_number.rivian_last_trip_kwh') | float(0) | round(2) }} kWh"
+
+      - name: "Rivian Idle Drain Last"
+        unique_id: rivian_idle_drain_last
+        unit_of_measurement: "kWh/hr"
+        state_class: measurement
+        state: "{{ states('input_number.rivian_last_idle_drain_rate') | float(0) | round(3) }}"
+        availability: "{{ states('input_number.rivian_last_idle_hours') | float(0) > 0 }}"
+        icon: mdi:battery-minus
+        attributes:
+          last_idle_duration: "{{ states('input_number.rivian_last_idle_hours') | float(0) | round(1) }} hr"
+
+      # Temperature-adjusted baseline (selects appropriate baseline for current temp)
+      - name: "Rivian Temperature Adjusted Baseline"
+        unique_id: rivian_temp_adjusted_baseline
+        unit_of_measurement: "mi/kWh"
+        state: >
+          {% set temp = states('sensor.YOUR_RIVIAN_outside_temperature') | float(50) %}
+          {% if temp < 32 %}
+            {{ states('input_number.rivian_baseline_cold') | float(2.0) | round(2) }}
+          {% elif temp < 50 %}
+            {{ states('input_number.rivian_baseline_cool') | float(2.2) | round(2) }}
+          {% elif temp < 70 %}
+            {{ states('input_number.rivian_baseline_mild') | float(2.4) | round(2) }}
+          {% else %}
+            {{ states('input_number.rivian_baseline_warm') | float(2.5) | round(2) }}
+          {% endif %}
+        icon: mdi:gauge
+
+      # Temperature band classification
+      - name: "Rivian Temperature Band"
+        unique_id: rivian_temp_band
+        state: >
+          {% set temp = states('sensor.YOUR_RIVIAN_outside_temperature') | float(50) %}
+          {% if temp < 32 %}
+            Cold (<32F)
+          {% elif temp < 50 %}
+            Cool (32-50F)
+          {% elif temp < 70 %}
+            Mild (50-70F)
+          {% else %}
+            Warm (>70F)
+          {% endif %}
+        icon: mdi:thermometer
+
+# =============================================================================
+# STATISTICS SENSORS - Rolling Averages
+# =============================================================================
+sensor:
+  - platform: statistics
+    name: "Rivian Efficiency 7d Stats"
+    entity_id: sensor.rivian_efficiency_last_trip
+    state_characteristic: mean
+    max_age:
+      days: 7
+
+  - platform: statistics
+    name: "Rivian Efficiency 30d Stats"
+    entity_id: sensor.rivian_efficiency_last_trip
+    state_characteristic: mean
+    max_age:
+      days: 30
+
+  - platform: statistics
+    name: "Rivian Idle Drain 7d Stats"
+    entity_id: sensor.rivian_idle_drain_last
+    state_characteristic: mean
+    max_age:
+      days: 7
+
+  - platform: statistics
+    name: "Rivian Idle Drain 30d Stats"
+    entity_id: sensor.rivian_idle_drain_last
+    state_characteristic: mean
+    max_age:
+      days: 30
