@@ -198,15 +198,17 @@
 
 # =============================================================================
 # IDLE DRAIN TRACKING - Start
-# Records battery level when vehicle enters sleep mode
+# Records battery level when vehicle stops driving (power != Go)
+# NOTE: Rivian fluctuates between Sleep/Standby/Ready while parked.
+# We track idle as "not Go" to avoid false session ends on state changes.
 # =============================================================================
 - id: rivian_idle_start
   alias: 'RIVIAN: Idle Drain Start'
-  description: Record starting battery when vehicle enters sleep mode
+  description: Record starting battery when vehicle stops driving (power != Go)
   trigger:
   - platform: state
     entity_id: sensor.YOUR_RIVIAN_power_state
-    to: Sleep
+    from: Go
     for:
       minutes: 5
   condition:
@@ -238,7 +240,7 @@
 
 # =============================================================================
 # IDLE DRAIN TRACKING - End
-# Calculates drain rate when vehicle wakes up or starts charging
+# Calculates drain rate when vehicle starts driving or charging
 # =============================================================================
 - id: rivian_idle_end
   alias: 'RIVIAN: Idle Drain End'
@@ -246,7 +248,7 @@
   trigger:
   - platform: state
     entity_id: sensor.YOUR_RIVIAN_power_state
-    from: Sleep
+    to: Go
   - platform: state
     entity_id: binary_sensor.YOUR_RIVIAN_charging_status
     to: 'on'
@@ -254,13 +256,6 @@
   - condition: state
     entity_id: sensor.YOUR_RIVIAN_service_mode
     state: 'off'
-  # Only process if idle was at least 1 hour
-  - condition: template
-    value_template: >
-      {% set start_time = states('input_number.rivian_idle_start_timestamp') | float(0) %}
-      {% set now_time = as_timestamp(now()) %}
-      {% set hours = (now_time - start_time) / 3600 %}
-      {{ hours > 1 }}
   action:
   # Clear in-progress flag FIRST (even if calculations fail)
   - service: input_boolean.turn_off
@@ -279,17 +274,24 @@
         {% elif temp < 50 %}cool
         {% elif temp < 70 %}mild
         {% else %}warm{% endif %}
-  # Store last idle values
-  - service: input_number.set_value
-    target:
-      entity_id: input_number.rivian_last_idle_hours
-    data:
-      value: '{{ hours_idle | round(1) }}'
-  - service: input_number.set_value
-    target:
-      entity_id: input_number.rivian_last_idle_drain_rate
-    data:
-      value: '{{ drain_rate | round(3) }}'
+  # Store last idle values ONLY if meaningful (>1hr or has drain)
+  # Short idle periods with 0 drain are not useful for dashboard display
+  - if:
+    - condition: template
+      value_template: '{{ hours_idle > 1 or kwh_lost > 0 }}'
+    then:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.rivian_last_idle_hours
+      data:
+        value: '{{ hours_idle | round(1) }}'
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.rivian_last_idle_drain_rate
+      data:
+        value: '{{ drain_rate | round(3) }}'
+  # Update running totals for temperature band (ALL idle periods contribute)
+  # ... (see full config for temperature band running totals)
   mode: single
 
 # =============================================================================
@@ -321,13 +323,14 @@
         name: "Rivian Tracking"
         message: "Trip tracking reset after restart - data from interrupted trip was lost"
         entity_id: input_boolean.rivian_trip_in_progress
-  # Check for orphaned idle (flag ON but not sleeping)
+  # Check for orphaned idle (flag ON but actually driving)
   - if:
     - condition: state
       entity_id: input_boolean.rivian_idle_in_progress
       state: 'on'
-    - condition: template
-      value_template: "{{ states('sensor.YOUR_RIVIAN_power_state') != 'Sleep' }}"
+    - condition: state
+      entity_id: sensor.YOUR_RIVIAN_power_state
+      state: 'Go'
     then:
     - service: input_boolean.turn_off
       entity_id: input_boolean.rivian_idle_in_progress
