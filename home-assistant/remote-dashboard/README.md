@@ -26,6 +26,15 @@ Control all your TVs and speakers from a single Home Assistant dashboard with au
 - `configuration.yaml` - Input helpers and template sensors
 - `automations.yaml` - Auto-select automation
 
+## Important: Entity Selection
+
+For TVs, you likely have multiple media_player entities from different integrations:
+
+- **Cast entity** (e.g., `media_player.living_room_tv`) - Use for **detection sensors**. Reports `playing` state with full media metadata (title, app, artist).
+- **Android TV entity** (e.g., `media_player.living_room_tv_2`) - Use for **remote control**. Has `remote.*` entities for sending commands but often only reports `on`/`off` without media info.
+
+The template sensors in `configuration.yaml` should use Cast entities for active device detection and now playing info. The dashboard remote cards should use Android TV entities for control.
+
 ## Setup Overview
 
 1. Install required HACS cards (Universal Remote Card, card-mod)
@@ -33,7 +42,7 @@ Control all your TVs and speakers from a single Home Assistant dashboard with au
 3. Add the template sensors from `configuration.yaml`
 4. Add the automation from `automations.yaml`
 5. Create a new dashboard and paste the contents of `remote-dashboard.yaml`
-6. Update entity IDs to match your devices
+6. Update entity IDs to match your devices (Cast entities for sensors, Android TV for remotes)
 
 ## Customization
 
