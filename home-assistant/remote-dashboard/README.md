@@ -15,7 +15,7 @@ Control all your TVs and speakers from a single Home Assistant dashboard with au
 
 - Home Assistant (2024.1 or later)
 - [Universal Remote Card](https://github.com/Nerwyn/universal-remote-card) (HACS)
-- [card-mod](https://github.com/thomasloven/lovelace-card-mod) (HACS, optional for Now Playing marquee)
+- [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) (HACS, for Now Playing display)
 - [custom-brand-icons](https://github.com/elax46/custom-brand-icons) (HACS, optional for streaming app icons)
 - Android TV Remote integration (for TV control)
 - Google Cast integration (for speaker control)
@@ -37,7 +37,7 @@ The template sensors in `configuration.yaml` should use Cast entities for active
 
 ## Setup Overview
 
-1. Install required HACS cards (Universal Remote Card, card-mod)
+1. Install required HACS cards (Universal Remote Card, Mushroom Cards)
 2. Add the input_select helper from `configuration.yaml`
 3. Add the template sensors from `configuration.yaml`
 4. Add the automation from `automations.yaml`

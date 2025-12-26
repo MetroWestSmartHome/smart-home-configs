@@ -65,6 +65,7 @@ template:
         icon: mdi:play-circle
 
       # Shows what's currently playing (optional, for Now Playing display)
+      # Falls back to app_name when media_title unavailable (e.g., Netflix on Cast)
       - name: "Remote Now Playing Title"
         unique_id: remote_now_playing_title
         state: >
@@ -78,7 +79,15 @@ template:
           {% set entity = entity_map.get(device) %}
           {% if entity %}
             {% set title = state_attr(entity, 'media_title') %}
-            {{ title if title and title not in ['unknown', 'unavailable', ''] else 'Not Playing' }}
+            {% set app = state_attr(entity, 'app_name') %}
+            {% set device_state = states(entity) %}
+            {% if title and title not in ['', 'None', none] %}
+              {{ title }}
+            {% elif device_state == 'playing' and app and app not in ['', 'None', none] %}
+              {{ app }}
+            {% else %}
+              Not Playing
+            {% endif %}
           {% else %}
             Not Playing
           {% endif %}

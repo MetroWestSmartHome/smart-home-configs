@@ -4,7 +4,7 @@
 #
 # Requirements:
 # - Universal Remote Card (HACS): https://github.com/Nerwyn/universal-remote-card
-# - card-mod (HACS) for Now Playing marquee (optional)
+# - Mushroom Cards (HACS) for Now Playing display
 # - custom-brand-icons (HACS) for streaming app icons (optional)
 
 title: Remote Control
@@ -23,8 +23,8 @@ cards:
         name: Device
 
   # ==========================================================================
-  # NOW PLAYING (Optional - requires card-mod for marquee effect)
-  # Shows "App: Title" with scrolling marquee if text is too long
+  # NOW PLAYING (Conditional - only shows when playing)
+  # Uses Mushroom template card - shows app name when title unavailable
   # ==========================================================================
   - type: conditional
     conditions:
@@ -32,11 +32,11 @@ cards:
         entity: sensor.remote_now_playing_title
         state_not: "Not Playing"
     card:
-      type: markdown
-      content: >
+      type: custom:mushroom-template-card
+      primary: >
         {% set app = states('sensor.remote_now_playing_app') %}
         {% set title = states('sensor.remote_now_playing_title') %}
-        {% if app and app not in ['unknown', 'unavailable', ''] and title and title not in ['unknown', 'unavailable', 'Not Playing', ''] %}
+        {% if app and app not in ['unknown', 'unavailable', ''] and title and title not in ['unknown', 'unavailable', 'Not Playing', ''] and title != app %}
         {{ app }}: {{ title }}
         {% elif title and title not in ['unknown', 'unavailable', 'Not Playing', ''] %}
         {{ title }}
@@ -45,35 +45,10 @@ cards:
         {% else %}
         Not Playing
         {% endif %}
-      card_mod:
-        style: |
-          ha-card {
-            background: none;
-            border: none;
-            box-shadow: none;
-            padding: 0 16px;
-          }
-          ha-markdown {
-            overflow: hidden;
-          }
-          ha-markdown p {
-            margin: 0;
-            font-size: 1.1em;
-            font-weight: 500;
-            white-space: nowrap;
-            display: inline-block;
-            animation: marquee 12s linear infinite;
-            animation-play-state: var(--marquee-play, paused);
-          }
-          ha-card:hover ha-markdown p {
-            --marquee-play: running;
-          }
-          @keyframes marquee {
-            0% { transform: translateX(0%); }
-            10% { transform: translateX(0%); }
-            90% { transform: translateX(calc(-100% + 100cqw)); }
-            100% { transform: translateX(calc(-100% + 100cqw)); }
-          }
+      icon: mdi:play-circle
+      icon_color: primary
+      tap_action:
+        action: none
 
   # ==========================================================================
   # TV REMOTE EXAMPLE (with backlight toggle)
