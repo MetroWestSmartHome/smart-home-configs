@@ -62,6 +62,10 @@
   - condition: state
     entity_id: sensor.YOUR_RIVIAN_service_mode
     state: 'off'
+  # Prevent spurious triggers on HA restart - only end a trip that was started
+  - condition: state
+    entity_id: input_boolean.rivian_trip_in_progress
+    state: 'on'
   # Only process trips >= 0.5 miles
   - condition: template
     value_template: >
@@ -256,6 +260,10 @@
   - condition: state
     entity_id: sensor.YOUR_RIVIAN_service_mode
     state: 'off'
+  # Prevent spurious triggers on HA restart - only end an idle session that was started
+  - condition: state
+    entity_id: input_boolean.rivian_idle_in_progress
+    state: 'on'
   action:
   # Clear in-progress flag FIRST (even if calculations fail)
   - service: input_boolean.turn_off
@@ -296,18 +304,18 @@
 
 # =============================================================================
 # HA RESTART RECOVERY
-# Resets orphaned in-progress flags after Home Assistant restarts
+# Resets orphaned or stale in-progress flags after Home Assistant restarts
 # =============================================================================
 - id: rivian_restart_recovery
   alias: 'RIVIAN: Restart Recovery'
-  description: Reset orphaned in-progress flags after HA restart
+  description: Reset orphaned or stale in-progress flags after HA restart
   trigger:
   - platform: homeassistant
     event: start
   action:
-  # Wait for entities to be available after restart
+  # Wait for entities to be available after restart (allows NTP sync too)
   - delay:
-      seconds: 30
+      seconds: 60
   # Check for orphaned trip (flag ON but not driving)
   - if:
     - condition: state
@@ -322,6 +330,22 @@
       data:
         name: "Rivian Tracking"
         message: "Trip tracking reset after restart - data from interrupted trip was lost"
+        entity_id: input_boolean.rivian_trip_in_progress
+  # Check for stale trip (flag ON, timestamp > 24 hours old - no trip lasts that long)
+  - if:
+    - condition: state
+      entity_id: input_boolean.rivian_trip_in_progress
+      state: 'on'
+    - condition: template
+      value_template: >
+        {{ (as_timestamp(now()) - states('input_number.rivian_trip_start_timestamp') | float(0)) > 86400 }}
+    then:
+    - service: input_boolean.turn_off
+      entity_id: input_boolean.rivian_trip_in_progress
+    - service: logbook.log
+      data:
+        name: "Rivian Tracking"
+        message: "Trip tracking reset - stale data (>24 hours old)"
         entity_id: input_boolean.rivian_trip_in_progress
   # Check for orphaned idle (flag ON but actually driving)
   - if:
@@ -339,6 +363,22 @@
         name: "Rivian Tracking"
         message: "Idle tracking reset after restart - data from interrupted session was lost"
         entity_id: input_boolean.rivian_idle_in_progress
+  # Check for stale idle (flag ON, timestamp > 7 days old)
+  - if:
+    - condition: state
+      entity_id: input_boolean.rivian_idle_in_progress
+      state: 'on'
+    - condition: template
+      value_template: >
+        {{ (as_timestamp(now()) - states('input_number.rivian_idle_start_timestamp') | float(0)) > 604800 }}
+    then:
+    - service: input_boolean.turn_off
+      entity_id: input_boolean.rivian_idle_in_progress
+    - service: logbook.log
+      data:
+        name: "Rivian Tracking"
+        message: "Idle tracking reset - stale data (>7 days old)"
+        entity_id: input_boolean.rivian_idle_in_progress
   # Check for orphaned charge (flag ON but not charging)
   - if:
     - condition: state
@@ -354,5 +394,21 @@
       data:
         name: "Rivian Tracking"
         message: "Charge tracking reset after restart - data from interrupted session was lost"
+        entity_id: input_boolean.rivian_charge_in_progress
+  # Check for stale charge (flag ON, timestamp > 24 hours old)
+  - if:
+    - condition: state
+      entity_id: input_boolean.rivian_charge_in_progress
+      state: 'on'
+    - condition: template
+      value_template: >
+        {{ (as_timestamp(now()) - states('input_number.rivian_charge_start_timestamp') | float(0)) > 86400 }}
+    then:
+    - service: input_boolean.turn_off
+      entity_id: input_boolean.rivian_charge_in_progress
+    - service: logbook.log
+      data:
+        name: "Rivian Tracking"
+        message: "Charge tracking reset - stale data (>24 hours old)"
         entity_id: input_boolean.rivian_charge_in_progress
   mode: single
