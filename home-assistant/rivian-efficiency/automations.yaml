@@ -106,6 +106,12 @@
       entity_id: input_number.rivian_last_trip_efficiency
     data:
       value: '{{ efficiency | round(2) }}'
+  # Record trip end timestamp for dashboard display (survives HA restart)
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.rivian_trip_end_timestamp
+    data:
+      value: '{{ as_timestamp(now()) | int }}'
   # Update running totals for temperature band (only if valid trip data)
   - condition: template
     value_template: '{{ kwh_used > 0 and distance > 0 }}'
@@ -298,6 +304,12 @@
         entity_id: input_number.rivian_last_idle_drain_rate
       data:
         value: '{{ drain_rate | round(3) }}'
+    # Record idle end timestamp for dashboard display (survives HA restart)
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.rivian_idle_end_timestamp
+      data:
+        value: '{{ as_timestamp(now()) | int }}'
   # Update running totals for temperature band (ALL idle periods contribute)
   # ... (see full config for temperature band running totals)
   mode: single

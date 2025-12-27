@@ -12,6 +12,7 @@ Track your Rivian's true mi/kWh efficiency with temperature-adjusted baselines, 
 - Idle drain tracking (kWh/hr while parked)
 - Home charging efficiency monitoring
 - HA restart protection with in-progress flags
+- Persistent "X ago" timestamps (survives HA restarts)
 
 ## Hardware
 
@@ -50,8 +51,10 @@ The config uses `sensor.YOUR_RIVIAN_battery_capacity` which reports actual kWh r
 ## Important Notes
 
 - **Do NOT add `initial:` to trip/idle/charge start helpers** - values must persist through HA restarts
+- **Do NOT add `initial:` to end timestamp helpers** - these store actual Unix timestamps for dashboard display
 - Baseline helpers DO use `initial:` as configuration defaults
 - Service mode checks prevent tracking during maintenance
+- End timestamp sensors show "X min/hr/day ago" and survive HA restarts (unlike `last-changed`)
 
 ## License
 

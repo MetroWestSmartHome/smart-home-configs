@@ -58,6 +58,14 @@ input_number:
     unit_of_measurement: "kWh"
     icon: mdi:lightning-bolt
 
+  # End timestamp for dashboard display (survives HA restart)
+  rivian_trip_end_timestamp:
+    name: "Trip End Timestamp"
+    min: 0
+    max: 9999999999
+    step: 1
+    icon: mdi:clock-end
+
 # =============================================================================
 # INPUT HELPERS - Temperature Band Running Totals
 # These accumulate over time for true mile-weighted averages
@@ -204,6 +212,14 @@ input_number:
     unit_of_measurement: "hr"
     icon: mdi:timer
 
+  # End timestamp for dashboard display (survives HA restart)
+  rivian_idle_end_timestamp:
+    name: "Idle End Timestamp"
+    min: 0
+    max: 9999999999
+    step: 1
+    icon: mdi:clock-end
+
 # =============================================================================
 # INPUT BOOLEANS - In-Progress Flags
 # NO initial: - must persist through HA restarts
@@ -279,6 +295,47 @@ template:
             Warm (>70F)
           {% endif %}
         icon: mdi:thermometer
+
+      # "X ago" sensors for dashboard display (survives HA restart)
+      - name: "Rivian Last Trip Ago"
+        unique_id: rivian_last_trip_ago
+        state: >
+          {% set ts = states('input_number.rivian_trip_end_timestamp') | float(0) %}
+          {% if ts > 0 %}
+            {% set diff = (as_timestamp(now()) - ts) | int %}
+            {% if diff < 60 %}
+              Just now
+            {% elif diff < 3600 %}
+              {{ (diff // 60) }} min ago
+            {% elif diff < 86400 %}
+              {{ (diff // 3600) }} hr ago
+            {% else %}
+              {{ (diff // 86400) }} day{% if (diff // 86400) > 1 %}s{% endif %} ago
+            {% endif %}
+          {% else %}
+            Unknown
+          {% endif %}
+        icon: mdi:clock-outline
+
+      - name: "Rivian Last Idle Ago"
+        unique_id: rivian_last_idle_ago
+        state: >
+          {% set ts = states('input_number.rivian_idle_end_timestamp') | float(0) %}
+          {% if ts > 0 %}
+            {% set diff = (as_timestamp(now()) - ts) | int %}
+            {% if diff < 60 %}
+              Just now
+            {% elif diff < 3600 %}
+              {{ (diff // 60) }} min ago
+            {% elif diff < 86400 %}
+              {{ (diff // 3600) }} hr ago
+            {% else %}
+              {{ (diff // 86400) }} day{% if (diff // 86400) > 1 %}s{% endif %} ago
+            {% endif %}
+          {% else %}
+            Unknown
+          {% endif %}
+        icon: mdi:clock-outline
 
 # =============================================================================
 # STATISTICS SENSORS - Rolling Averages
