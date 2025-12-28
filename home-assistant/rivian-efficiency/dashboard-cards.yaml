@@ -95,6 +95,7 @@ battery_idle:
       entity: sensor.rivian_idle_drain_last
       name: Last Idle Drain
       icon: mdi:battery-minus-outline
+      state: "{{ states('sensor.rivian_idle_drain_last') }} kWh/hr"
       secondary: "{{ states('input_number.rivian_last_idle_hours') | round(1) }} hr"
 
 # =============================================================================
