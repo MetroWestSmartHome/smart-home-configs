@@ -12,7 +12,7 @@ Track your Rivian's true mi/kWh efficiency with temperature-adjusted baselines, 
 - Idle drain tracking (kWh/hr while parked)
 - Home charging efficiency monitoring
 - HA restart protection with in-progress flags
-- Persistent "X ago" timestamps (survives HA restarts)
+- Dashboard shows session details (trip distance, idle duration, charge kWh)
 
 ## Hardware
 
@@ -26,6 +26,7 @@ Track your Rivian's true mi/kWh efficiency with temperature-adjusted baselines, 
 |------|---------|
 | `configuration.yaml` | Input helpers, template sensors, statistics |
 | `automations.yaml` | Trip/idle/charge tracking automations |
+| `dashboard-cards.yaml` | Ready-to-use Lovelace cards for your dashboard |
 
 ## Quick Start
 
@@ -51,10 +52,9 @@ The config uses `sensor.YOUR_RIVIAN_battery_capacity` which reports actual kWh r
 ## Important Notes
 
 - **Do NOT add `initial:` to trip/idle/charge start helpers** - values must persist through HA restarts
-- **Do NOT add `initial:` to end timestamp helpers** - these store actual Unix timestamps for dashboard display
 - Baseline helpers DO use `initial:` as configuration defaults
 - Service mode checks prevent tracking during maintenance
-- End timestamp sensors show "X min/hr/day ago" and survive HA restarts (unlike `last-changed`)
+- Dashboard displays session metrics (distance/duration/kWh) which are more useful than "time ago" and persist through restarts
 
 ## License
 

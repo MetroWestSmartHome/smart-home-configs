@@ -1,0 +1,150 @@
+# Rivian Efficiency Dashboard Cards
+# Full Tutorial: https://metrowestsmarthome.com/rivian-home-assistant/
+#
+# These cards can be added to any Lovelace dashboard.
+# Replace YOUR_RIVIAN with your vehicle entity prefix.
+#
+# Required custom cards (install via HACS):
+# - custom:template-entity-row (lovelace-template-entity-row)
+# - custom:bar-card (bar-card)
+# - custom:bubble-card (optional, for pop-ups)
+
+# =============================================================================
+# VEHICLE IMAGE & BATTERY BAR
+# =============================================================================
+# Shows the vehicle image with a colored battery bar underneath.
+# The bar changes color based on charge level.
+
+vehicle_header:
+  - type: picture-entity
+    entity: image.YOUR_RIVIAN_side_dark
+    show_state: false
+    show_name: false
+  - type: custom:bar-card
+    entities:
+      - entity: sensor.YOUR_RIVIAN_battery_state_of_charge
+    positions:
+      icon: 'off'
+      indicator: 'off'
+      name: 'off'
+      minmax: 'off'
+      value: 'off'
+    color: '#03fd73'
+    severity:
+      - from: '0'
+        to: '19'
+        color: '#db1414'
+      - from: '20'
+        to: '25'
+        color: '#fcca03'
+      - from: '80'
+        to: '100'
+        color: '#54cfff'
+    height: 5px
+
+# =============================================================================
+# TRIP EFFICIENCY CARD
+# =============================================================================
+# Shows last trip efficiency and rolling averages.
+# Secondary info shows trip distance for context.
+
+trip_efficiency:
+  type: entities
+  title: "Trip Efficiency"
+  show_header_toggle: false
+  entities:
+    - type: custom:template-entity-row
+      entity: sensor.rivian_efficiency_last_trip
+      name: Last Trip
+      icon: mdi:map-marker-distance
+      state: "{{ states('sensor.rivian_efficiency_last_trip') }} mi/kWh"
+      secondary: "{{ states('input_number.rivian_last_trip_distance') | round(1) }} mi"
+    - entity: sensor.rivian_efficiency_7d
+      name: 7-Day Average
+      icon: mdi:chart-box
+    - entity: sensor.rivian_efficiency_30d
+      name: 30-Day Average
+      icon: mdi:chart-line
+    - entity: sensor.rivian_efficiency_lifetime
+      name: All-Time Average
+      icon: mdi:chart-timeline
+    - type: divider
+    - type: custom:template-entity-row
+      entity: sensor.rivian_temp_adjusted_baseline
+      name: "Current Baseline"
+      icon: mdi:gauge
+      state: "{{ states('sensor.rivian_temp_adjusted_baseline') }} mi/kWh"
+    - entity: sensor.rivian_efficiency_vs_baseline
+      name: vs Baseline
+      icon: mdi:compare
+
+# =============================================================================
+# BATTERY & IDLE CARD
+# =============================================================================
+# Shows current SOC and idle drain information.
+# Secondary info shows how long the vehicle was idle.
+
+battery_idle:
+  type: entities
+  title: "Battery & Idle"
+  show_header_toggle: false
+  entities:
+    - entity: sensor.YOUR_RIVIAN_battery_state_of_charge
+      name: Current SOC
+    - type: custom:template-entity-row
+      entity: sensor.rivian_idle_drain_last
+      name: Last Idle Drain
+      icon: mdi:battery-minus-outline
+      secondary: "{{ states('input_number.rivian_last_idle_hours') | round(1) }} hr"
+
+# =============================================================================
+# HOME CHARGING CARD
+# =============================================================================
+# Shows charging efficiency for home charging sessions.
+# Secondary info shows how much energy was added.
+
+home_charging:
+  type: entities
+  title: "Home Charging"
+  show_header_toggle: false
+  entities:
+    - type: custom:template-entity-row
+      entity: sensor.rivian_charging_efficiency_last
+      name: Last Session
+      icon: mdi:ev-station
+      state: "{{ states('sensor.rivian_charging_efficiency_last') }}%"
+      secondary: "{{ states('input_number.rivian_last_charge_kwh_delivered') | round(1) }} kWh added"
+    - type: custom:template-entity-row
+      entity: sensor.rivian_charging_efficiency_stats
+      name: Average Efficiency
+      icon: mdi:chart-line
+      state: "{{ states('sensor.rivian_charging_efficiency_stats') }}%"
+
+# =============================================================================
+# TIRE PRESSURES CARD (horizontal layout)
+# =============================================================================
+# Shows tire pressures in a 2-column layout.
+
+tire_pressures:
+  type: horizontal-stack
+  cards:
+    - type: entities
+      title: Left Side
+      show_header_toggle: false
+      entities:
+        - entity: sensor.YOUR_RIVIAN_tire_pressure_front_left
+          name: Front Left
+          icon: mdi:tire
+        - entity: sensor.YOUR_RIVIAN_tire_pressure_rear_left
+          name: Rear Left
+          icon: mdi:tire
+    - type: entities
+      title: Right Side
+      show_header_toggle: false
+      entities:
+        - entity: sensor.YOUR_RIVIAN_tire_pressure_front_right
+          name: Front Right
+          icon: mdi:tire
+        - entity: sensor.YOUR_RIVIAN_tire_pressure_rear_right
+          name: Rear Right
+          icon: mdi:tire
