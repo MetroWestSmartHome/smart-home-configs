@@ -70,19 +70,18 @@ cards:
       rows:
         - - power
           - backlight
+        - circlepad
+        - volume_buttons
+        - - back
+          - keyboard
+          - play_pause
+          - home
         - - youtube_tv
           - netflix
           - hulu_custom
           - disney
           - peacock
           - youtube
-        - circlepad
-        - - volume_mute
-          - volume_slider
-        - - back
-          - keyboard
-          - play_pause
-          - home
       custom_actions:
         # Backlight toggle (remove if your TV doesn't have LED backlights)
         - name: backlight
@@ -118,10 +117,6 @@ cards:
               entity_id: remote.YOUR_TV_REMOTE
             data:
               activity: com.peacocktv.peacockandroid
-        # Volume slider
-        - name: volume_slider
-          type: slider
-          label: Volume
 
   # ==========================================================================
   # TV REMOTE EXAMPLE (without backlight)
@@ -142,19 +137,18 @@ cards:
       haptics: true
       rows:
         - power  # Single element, not a row array
+        - circlepad
+        - volume_buttons
+        - - back
+          - keyboard
+          - play_pause
+          - home
         - - youtube_tv
           - netflix
           - hulu_custom
           - disney
           - peacock
           - youtube
-        - circlepad
-        - - volume_mute
-          - volume_slider
-        - - back
-          - keyboard
-          - play_pause
-          - home
       custom_actions:
         - name: hulu_custom
           type: button
@@ -178,9 +172,6 @@ cards:
               entity_id: remote.YOUR_BEDROOM_TV_REMOTE
             data:
               activity: com.peacocktv.peacockandroid
-        - name: volume_slider
-          type: slider
-          label: Volume
 
   # ==========================================================================
   # SPEAKER REMOTE EXAMPLE
