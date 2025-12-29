@@ -111,3 +111,28 @@ template:
 
           {% endif %}
         icon: mdi:application
+
+# =============================================================================
+# SPOTIFY SOURCE DETECTION (for Spotify Connect support)
+# These binary sensors detect when Spotify is playing on each speaker.
+# Lovelace conditional cards don't support attribute/template conditions,
+# so we expose the check via binary sensors.
+# =============================================================================
+
+  - binary_sensor:
+      - name: "Spotify Playing on Kitchen Speaker"
+        unique_id: spotify_playing_kitchen_speaker
+        state: >
+          {{ is_state('media_player.spotify_YOUR_USERNAME', 'playing') and
+             state_attr('media_player.spotify_YOUR_USERNAME', 'source') == 'Kitchen speaker' }}
+        icon: mdi:spotify
+
+      - name: "Spotify Playing on Office Speaker"
+        unique_id: spotify_playing_office_speaker
+        state: >
+          {{ is_state('media_player.spotify_YOUR_USERNAME', 'playing') and
+             state_attr('media_player.spotify_YOUR_USERNAME', 'source') == 'Office speaker' }}
+        icon: mdi:spotify
+
+      # Add one for each speaker. The source name must match EXACTLY what
+      # Spotify reports in Developer Tools > States > media_player.spotify_*

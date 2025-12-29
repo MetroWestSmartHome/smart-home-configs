@@ -174,8 +174,8 @@ cards:
               activity: com.peacocktv.peacockandroid
 
   # ==========================================================================
-  # SPEAKER REMOTE EXAMPLE
-  # Uses native media-control card + button grid
+  # SPEAKER REMOTE EXAMPLE (with Spotify Connect support)
+  # Shows Spotify media info when Spotify is playing on this speaker
   # ==========================================================================
   - type: conditional
     conditions:
@@ -185,8 +185,27 @@ cards:
     card:
       type: vertical-stack
       cards:
-        - type: media-control
-          entity: media_player.YOUR_KITCHEN_SPEAKER
+        # Show Spotify card when playing on this speaker
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: binary_sensor.spotify_playing_on_kitchen_speaker
+              state: "on"
+          card:
+            type: media-control
+            entity: media_player.spotify_YOUR_USERNAME
+
+        # Show speaker card when Spotify is NOT playing here
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: binary_sensor.spotify_playing_on_kitchen_speaker
+              state: "off"
+          card:
+            type: media-control
+            entity: media_player.YOUR_KITCHEN_SPEAKER
+
+        # Playback controls
         - square: false
           columns: 3
           type: grid
@@ -212,6 +231,19 @@ cards:
                 perform_action: media_player.media_next_track
                 target:
                   entity_id: media_player.YOUR_KITCHEN_SPEAKER
+
+        # Volume controls (separate row for clarity)
+        - square: false
+          columns: 3
+          type: grid
+          cards:
+            - type: button
+              icon: mdi:volume-minus
+              tap_action:
+                action: perform-action
+                perform_action: media_player.volume_down
+                target:
+                  entity_id: media_player.YOUR_KITCHEN_SPEAKER
             - type: button
               icon: mdi:volume-off
               tap_action:
@@ -222,14 +254,7 @@ cards:
                 target:
                   entity_id: media_player.YOUR_KITCHEN_SPEAKER
             - type: button
-              icon: mdi:volume-medium
-              tap_action:
-                action: perform-action
-                perform_action: media_player.volume_down
-                target:
-                  entity_id: media_player.YOUR_KITCHEN_SPEAKER
-            - type: button
-              icon: mdi:volume-high
+              icon: mdi:volume-plus
               tap_action:
                 action: perform-action
                 perform_action: media_player.volume_up

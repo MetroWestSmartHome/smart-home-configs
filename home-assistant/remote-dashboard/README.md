@@ -1,13 +1,14 @@
 # Universal Remote Dashboard
 
-Control all your TVs and speakers from a single Home Assistant dashboard with automatic device switching.
+Control all your TVs and speakers from a single Home Assistant dashboard with automatic device switching and Spotify Connect support.
 
 ## Features
 
 - Device dropdown selector at top
 - Auto-selects device when media starts playing
-- TV remotes: circlepad navigation, volume slider, keyboard, streaming app buttons
-- Speaker remotes: media-control card with playback buttons
+- TV remotes: circlepad navigation, volume buttons, keyboard, streaming app buttons
+- Speaker remotes: media-control card with playback and volume buttons
+- Spotify Connect support: shows Spotify media info when playing on a speaker
 - Optional backlight toggle for TVs with LED strips
 - Remotes always visible, even when devices are off
 
@@ -19,6 +20,7 @@ Control all your TVs and speakers from a single Home Assistant dashboard with au
 - [custom-brand-icons](https://github.com/elax46/custom-brand-icons) (HACS, optional for streaming app icons)
 - Android TV Remote integration (for TV control)
 - Google Cast integration (for speaker control)
+- Spotify integration (for Spotify Connect support)
 
 ## What's Included
 
@@ -57,6 +59,14 @@ The Universal Remote Card has built-in support for many streaming apps. For apps
 ### Speaker Groups
 
 If you have Chromecast-enabled speakers, you can create speaker groups in the Google Home app. These groups appear as separate media player entities in Home Assistant and can be added to the remote dashboard.
+
+### Spotify Connect
+
+When using Spotify Connect, the Cast speaker entity often shows "off" even while music is playing. The binary sensors in `configuration.yaml` detect when Spotify is playing on each speaker by checking the Spotify entity's `source` attribute. The dashboard then conditionally shows the Spotify media-control card instead of the speaker card.
+
+**Important:** The source names must match exactly what Spotify reports. Check Developer Tools → States → `media_player.spotify_YOUR_USERNAME` while playing on each speaker.
+
+**Future enhancement:** For multiple Spotify accounts, you can convert these binary sensors to template sensors that return which Spotify entity is playing on each speaker.
 
 ## Full Tutorial
 
