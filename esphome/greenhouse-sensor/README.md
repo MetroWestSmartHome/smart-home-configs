@@ -10,7 +10,7 @@ Low-power ESP32-C3 temperature and humidity sensor using a BME280, integrated wi
 - Soldering iron for final assembly
 - 3D printed case (optional)
 
-See the [full tutorial](https://metrowestsmarthome.com/2025/02/21/greenhouse-temperature-sensor/) for product links and detailed instructions.
+See the [full tutorial](https://metrowestsmarthome.com/greenhouse-temperature-sensor/) for product links and detailed instructions.
 
 ## Wiring
 
@@ -30,4 +30,4 @@ See the [full tutorial](https://metrowestsmarthome.com/2025/02/21/greenhouse-tem
 
 ## Full Tutorial
 
-[Greenhouse Temperature Sensor - MetroWest SmartHome](https://metrowestsmarthome.com/2025/02/21/greenhouse-temperature-sensor/)
+[Greenhouse Temperature Sensor - MetroWest SmartHome](https://metrowestsmarthome.com/greenhouse-temperature-sensor/)

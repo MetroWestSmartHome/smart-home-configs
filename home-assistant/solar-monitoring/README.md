@@ -9,7 +9,7 @@ Monitor your Renogy solar system via BT-1 Bluetooth module and send data to Home
 - Renogy BT-1 Bluetooth module
 - Home Assistant with MQTT broker configured
 
-See the [full tutorial](https://metrowestsmarthome.com/2025/06/04/greenhouse-solar-monitoring/) for product links and detailed instructions.
+See the [full tutorial](https://metrowestsmarthome.com/greenhouse-solar-monitoring/) for product links and detailed instructions.
 
 ## What's Included
 
@@ -39,4 +39,4 @@ See the [full tutorial](https://metrowestsmarthome.com/2025/06/04/greenhouse-sol
 
 ## Full Tutorial
 
-[Greenhouse Solar Monitoring - MetroWest SmartHome](https://metrowestsmarthome.com/2025/06/04/greenhouse-solar-monitoring/)
+[Greenhouse Solar Monitoring - MetroWest SmartHome](https://metrowestsmarthome.com/greenhouse-solar-monitoring/)

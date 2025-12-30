@@ -70,4 +70,4 @@ When using Spotify Connect, the Cast speaker entity often shows "off" even while
 
 ## Full Tutorial
 
-[Building a Universal Remote Dashboard in Home Assistant - MetroWest SmartHome](https://metrowestsmarthome.com/2025/12/22/home-assistant-remote-dashboard/)
+[Building a Universal Remote Dashboard in Home Assistant - MetroWest SmartHome](https://metrowestsmarthome.com/home-assistant-remote-dashboard/)

@@ -6,11 +6,11 @@ Open source Home Assistant, ESPHome, and smart home configurations from [metrowe
 
 | Folder | Description | Blog Post |
 |--------|-------------|-----------|
-| `esphome/greenhouse-sensor/` | ESP32-C3 + BME280 temperature/humidity sensor | [Greenhouse Temperature Sensor](https://metrowestsmarthome.com/2025/02/21/greenhouse-temperature-sensor/) |
-| `esphome/mini-split-ir/` | Athom IR controller for Fujitsu mini splits | [Making Simple Mini Splits Smarter](https://metrowestsmarthome.com/2025/02/28/esphome-mini-split-control/) |
-| `home-assistant/solar-monitoring/` | MQTT sensors for Renogy solar via BT-1 | [Greenhouse Solar Monitoring](https://metrowestsmarthome.com/2025/06/04/greenhouse-solar-monitoring/) |
-| `home-assistant/energy-monitoring/` | rtlamr2mqtt meter reading config | [Monitoring Energy Usage](https://metrowestsmarthome.com/2025/04/09/home-assistant-energy-monitoring/) |
-| `home-assistant/remote-dashboard/` | Universal remote control dashboard | [Universal Remote Dashboard](https://metrowestsmarthome.com/2025/12/22/home-assistant-remote-dashboard/) |
+| `esphome/greenhouse-sensor/` | ESP32-C3 + BME280 temperature/humidity sensor | [Greenhouse Temperature Sensor](https://metrowestsmarthome.com/greenhouse-temperature-sensor/) |
+| `esphome/mini-split-ir/` | Athom IR controller for Fujitsu mini splits | [Making Simple Mini Splits Smarter](https://metrowestsmarthome.com/esphome-mini-split-control/) |
+| `home-assistant/solar-monitoring/` | MQTT sensors for Renogy solar via BT-1 | [Greenhouse Solar Monitoring](https://metrowestsmarthome.com/greenhouse-solar-monitoring/) |
+| `home-assistant/energy-monitoring/` | rtlamr2mqtt meter reading config | [Monitoring Energy Usage](https://metrowestsmarthome.com/home-assistant-energy-monitoring/) |
+| `home-assistant/remote-dashboard/` | Universal remote control dashboard | [Universal Remote Dashboard](https://metrowestsmarthome.com/home-assistant-remote-dashboard/) |
 | `home-assistant/rivian-efficiency/` | Rivian R1T/R1S true mi/kWh tracking | [Rivian Home Assistant Dashboard](https://metrowestsmarthome.com/rivian-home-assistant/) |
 
 ## Getting Started
