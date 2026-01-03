@@ -1,15 +1,37 @@
-# Rivian Efficiency Tracking - Configuration
+# Rivian Efficiency Tracking - Configuration (Event-Based Architecture)
 # Full Tutorial: https://metrowestsmarthome.com/rivian-home-assistant/
+#
+# ARCHITECTURE NOTE (2026-01-03):
+# This uses SOC-based kWh calculation: kWh = (SOC_delta / 100) × capacity
+# This accounts for battery degradation over time.
+# Events are fired for accurate 7/30-day queries (no duplicate counting).
+# Running totals are used for lifetime stats (survive event purge).
 #
 # Replace all YOUR_* placeholders with your actual values:
 # - YOUR_RIVIAN: Your Rivian entity prefix (e.g., "rivnit" or "rivian_r1t")
 
 # =============================================================================
-# INPUT HELPERS - Trip Tracking
+# INPUT HELPERS - Trip Tracking (SOC-based)
 # NOTE: No 'initial:' on start helpers - values must persist through HA restart
 # =============================================================================
 input_number:
-  # Trip start values (recorded when driving begins)
+  # SOC-based tracking (captures % and capacity for accurate kWh calculation)
+  rivian_trip_start_soc:
+    name: "Trip Start SOC"
+    min: 0
+    max: 100
+    step: 0.1
+    unit_of_measurement: "%"
+    icon: mdi:battery-high
+
+  rivian_trip_start_capacity:
+    name: "Trip Start Battery Capacity"
+    min: 0
+    max: 200
+    step: 0.1
+    unit_of_measurement: "kWh"
+    icon: mdi:battery-check
+
   rivian_trip_start_odometer:
     name: "Trip Start Odometer"
     min: 0
@@ -18,14 +40,6 @@ input_number:
     unit_of_measurement: "mi"
     icon: mdi:counter
 
-  rivian_trip_start_kwh:
-    name: "Trip Start Battery kWh"
-    min: 0
-    max: 200
-    step: 0.01
-    unit_of_measurement: "kWh"
-    icon: mdi:battery
-
   rivian_trip_start_timestamp:
     name: "Trip Start Timestamp"
     min: 0
@@ -33,7 +47,7 @@ input_number:
     step: 1
     icon: mdi:clock-start
 
-  # Last trip results
+  # Last trip results (for dashboard display)
   rivian_last_trip_efficiency:
     name: "Last Trip Efficiency"
     min: 0
@@ -60,7 +74,7 @@ input_number:
 
 # =============================================================================
 # INPUT HELPERS - Temperature Band Running Totals
-# These accumulate over time for true mile-weighted averages
+# These accumulate over time for lifetime stats (events may be purged)
 # =============================================================================
   # Cold weather (<32°F)
   rivian_total_miles_cold:
@@ -69,7 +83,6 @@ input_number:
     max: 1000000
     step: 0.01
     unit_of_measurement: "mi"
-    icon: mdi:road-variant
 
   rivian_total_kwh_cold:
     name: "Total kWh <32°F"
@@ -77,7 +90,6 @@ input_number:
     max: 500000
     step: 0.01
     unit_of_measurement: "kWh"
-    icon: mdi:lightning-bolt
 
   # Cool weather (32-50°F)
   rivian_total_miles_cool:
@@ -86,7 +98,6 @@ input_number:
     max: 1000000
     step: 0.01
     unit_of_measurement: "mi"
-    icon: mdi:road-variant
 
   rivian_total_kwh_cool:
     name: "Total kWh 32-50°F"
@@ -94,7 +105,6 @@ input_number:
     max: 500000
     step: 0.01
     unit_of_measurement: "kWh"
-    icon: mdi:lightning-bolt
 
   # Mild weather (50-70°F)
   rivian_total_miles_mild:
@@ -103,7 +113,6 @@ input_number:
     max: 1000000
     step: 0.01
     unit_of_measurement: "mi"
-    icon: mdi:road-variant
 
   rivian_total_kwh_mild:
     name: "Total kWh 50-70°F"
@@ -111,7 +120,6 @@ input_number:
     max: 500000
     step: 0.01
     unit_of_measurement: "kWh"
-    icon: mdi:lightning-bolt
 
   # Warm weather (>70°F)
   rivian_total_miles_warm:
@@ -120,7 +128,6 @@ input_number:
     max: 1000000
     step: 0.01
     unit_of_measurement: "mi"
-    icon: mdi:road-variant
 
   rivian_total_kwh_warm:
     name: "Total kWh >70°F"
@@ -128,7 +135,6 @@ input_number:
     max: 500000
     step: 0.01
     unit_of_measurement: "kWh"
-    icon: mdi:lightning-bolt
 
 # =============================================================================
 # INPUT HELPERS - Temperature Band Baselines
@@ -136,8 +142,8 @@ input_number:
 # =============================================================================
   rivian_baseline_cold:
     name: "Baseline Efficiency <32°F"
-    min: 1.5
-    max: 3.5
+    min: 0
+    max: 5
     step: 0.01
     initial: 2.0
     unit_of_measurement: "mi/kWh"
@@ -145,8 +151,8 @@ input_number:
 
   rivian_baseline_cool:
     name: "Baseline Efficiency 32-50°F"
-    min: 1.5
-    max: 3.5
+    min: 0
+    max: 5
     step: 0.01
     initial: 2.2
     unit_of_measurement: "mi/kWh"
@@ -154,8 +160,8 @@ input_number:
 
   rivian_baseline_mild:
     name: "Baseline Efficiency 50-70°F"
-    min: 1.5
-    max: 3.5
+    min: 0
+    max: 5
     step: 0.01
     initial: 2.4
     unit_of_measurement: "mi/kWh"
@@ -163,23 +169,31 @@ input_number:
 
   rivian_baseline_warm:
     name: "Baseline Efficiency >70°F"
-    min: 1.5
-    max: 3.5
+    min: 0
+    max: 5
     step: 0.01
     initial: 2.5
     unit_of_measurement: "mi/kWh"
     icon: mdi:thermometer-high
 
 # =============================================================================
-# INPUT HELPERS - Idle Drain Tracking
+# INPUT HELPERS - Idle Drain Tracking (SOC-based)
 # =============================================================================
-  rivian_idle_start_kwh:
-    name: "Idle Start Battery kWh"
+  rivian_idle_start_soc:
+    name: "Idle Start SOC"
+    min: 0
+    max: 100
+    step: 0.1
+    unit_of_measurement: "%"
+    icon: mdi:battery-high
+
+  rivian_idle_start_capacity:
+    name: "Idle Start Battery Capacity"
     min: 0
     max: 200
-    step: 0.01
+    step: 0.1
     unit_of_measurement: "kWh"
-    icon: mdi:battery
+    icon: mdi:battery-check
 
   rivian_idle_start_timestamp:
     name: "Idle Start Timestamp"
@@ -222,6 +236,57 @@ input_boolean:
     icon: mdi:ev-station
 
 # =============================================================================
+# SQL SENSORS - Event-Based Queries
+# These query the events table for accurate 7/30-day totals (no duplicates)
+# =============================================================================
+sql:
+  # 7-day trip totals (from events)
+  - name: "Rivian Cumulative Miles 7d"
+    query: >
+      SELECT COALESCE(SUM(CAST(json_extract(e.event_data, '$.distance') AS FLOAT)), 0) as total
+      FROM events e
+      INNER JOIN event_types et ON e.event_type_id = et.event_type_id
+      WHERE et.event_type = 'rivian_trip_completed'
+        AND e.time_fired_ts >= (strftime('%s', 'now') - 7*24*60*60)
+    column: 'total'
+    unit_of_measurement: 'mi'
+    db_url: sqlite:////config/home-assistant_v2.db
+
+  - name: "Rivian Cumulative kWh 7d"
+    query: >
+      SELECT COALESCE(SUM(CAST(json_extract(e.event_data, '$.kwh_used') AS FLOAT)), 0) as total
+      FROM events e
+      INNER JOIN event_types et ON e.event_type_id = et.event_type_id
+      WHERE et.event_type = 'rivian_trip_completed'
+        AND e.time_fired_ts >= (strftime('%s', 'now') - 7*24*60*60)
+    column: 'total'
+    unit_of_measurement: 'kWh'
+    db_url: sqlite:////config/home-assistant_v2.db
+
+  # 30-day trip totals (from events)
+  - name: "Rivian Cumulative Miles 30d"
+    query: >
+      SELECT COALESCE(SUM(CAST(json_extract(e.event_data, '$.distance') AS FLOAT)), 0) as total
+      FROM events e
+      INNER JOIN event_types et ON e.event_type_id = et.event_type_id
+      WHERE et.event_type = 'rivian_trip_completed'
+        AND e.time_fired_ts >= (strftime('%s', 'now') - 30*24*60*60)
+    column: 'total'
+    unit_of_measurement: 'mi'
+    db_url: sqlite:////config/home-assistant_v2.db
+
+  - name: "Rivian Cumulative kWh 30d"
+    query: >
+      SELECT COALESCE(SUM(CAST(json_extract(e.event_data, '$.kwh_used') AS FLOAT)), 0) as total
+      FROM events e
+      INNER JOIN event_types et ON e.event_type_id = et.event_type_id
+      WHERE et.event_type = 'rivian_trip_completed'
+        AND e.time_fired_ts >= (strftime('%s', 'now') - 30*24*60*60)
+    column: 'total'
+    unit_of_measurement: 'kWh'
+    db_url: sqlite:////config/home-assistant_v2.db
+
+# =============================================================================
 # TEMPLATE SENSORS - Display Values
 # =============================================================================
 template:
@@ -236,6 +301,47 @@ template:
         attributes:
           last_trip_distance: "{{ states('input_number.rivian_last_trip_distance') | float(0) | round(2) }} mi"
           last_trip_kwh: "{{ states('input_number.rivian_last_trip_kwh') | float(0) | round(2) }} kWh"
+
+      # 7-day mile-weighted average (from SQL event queries)
+      - name: "Rivian Efficiency 7d"
+        unique_id: rivian_efficiency_7d
+        unit_of_measurement: "mi/kWh"
+        state_class: measurement
+        state: >
+          {% set miles = states('sensor.rivian_cumulative_miles_7d') | float(0) %}
+          {% set kwh = states('sensor.rivian_cumulative_kwh_7d') | float(0) %}
+          {{ (miles / kwh) | round(2) if kwh > 0 else 0 }}
+        availability: "{{ states('sensor.rivian_cumulative_kwh_7d') | float(0) > 0 }}"
+        icon: mdi:calculator
+
+      # 30-day mile-weighted average (from SQL event queries)
+      - name: "Rivian Efficiency 30d"
+        unique_id: rivian_efficiency_30d
+        unit_of_measurement: "mi/kWh"
+        state_class: measurement
+        state: >
+          {% set miles = states('sensor.rivian_cumulative_miles_30d') | float(0) %}
+          {% set kwh = states('sensor.rivian_cumulative_kwh_30d') | float(0) %}
+          {{ (miles / kwh) | round(2) if kwh > 0 else 0 }}
+        availability: "{{ states('sensor.rivian_cumulative_kwh_30d') | float(0) > 0 }}"
+        icon: mdi:calculator
+
+      # Lifetime efficiency (from running totals - survives event purge)
+      - name: "Rivian Efficiency Lifetime"
+        unique_id: rivian_efficiency_lifetime
+        unit_of_measurement: "mi/kWh"
+        state_class: measurement
+        state: >
+          {% set miles = states('input_number.rivian_total_miles_cold') | float(0) +
+                         states('input_number.rivian_total_miles_cool') | float(0) +
+                         states('input_number.rivian_total_miles_mild') | float(0) +
+                         states('input_number.rivian_total_miles_warm') | float(0) %}
+          {% set kwh = states('input_number.rivian_total_kwh_cold') | float(0) +
+                       states('input_number.rivian_total_kwh_cool') | float(0) +
+                       states('input_number.rivian_total_kwh_mild') | float(0) +
+                       states('input_number.rivian_total_kwh_warm') | float(0) %}
+          {{ (miles / kwh) | round(2) if kwh > 0 else 0 }}
+        icon: mdi:chart-timeline-variant
 
       - name: "Rivian Idle Drain Last"
         unique_id: rivian_idle_drain_last
@@ -263,51 +369,3 @@ template:
             {{ states('input_number.rivian_baseline_warm') | float(2.5) | round(2) }}
           {% endif %}
         icon: mdi:gauge
-
-      # Temperature band classification
-      - name: "Rivian Temperature Band"
-        unique_id: rivian_temp_band
-        state: >
-          {% set temp = states('sensor.YOUR_RIVIAN_outside_temperature') | float(50) %}
-          {% if temp < 32 %}
-            Cold (<32F)
-          {% elif temp < 50 %}
-            Cool (32-50F)
-          {% elif temp < 70 %}
-            Mild (50-70F)
-          {% else %}
-            Warm (>70F)
-          {% endif %}
-        icon: mdi:thermometer
-
-# =============================================================================
-# STATISTICS SENSORS - Rolling Averages
-# =============================================================================
-sensor:
-  - platform: statistics
-    name: "Rivian Efficiency 7d Stats"
-    entity_id: sensor.rivian_efficiency_last_trip
-    state_characteristic: mean
-    max_age:
-      days: 7
-
-  - platform: statistics
-    name: "Rivian Efficiency 30d Stats"
-    entity_id: sensor.rivian_efficiency_last_trip
-    state_characteristic: mean
-    max_age:
-      days: 30
-
-  - platform: statistics
-    name: "Rivian Idle Drain 7d Stats"
-    entity_id: sensor.rivian_idle_drain_last
-    state_characteristic: mean
-    max_age:
-      days: 7
-
-  - platform: statistics
-    name: "Rivian Idle Drain 30d Stats"
-    entity_id: sensor.rivian_idle_drain_last
-    state_characteristic: mean
-    max_age:
-      days: 30
