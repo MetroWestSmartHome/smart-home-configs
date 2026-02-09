@@ -22,7 +22,7 @@
   - title: Baby
     path: baby
     icon: mdi:baby-face-outline
-    theme: Catppuccin Macchiato Rounded
+    theme: Catppuccin Macchiato
     layout:
       max_cols: 3
     cards:
