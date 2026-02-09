@@ -1,0 +1,1825 @@
+# ==============================================================================
+# BABY BUDDY PACKAGE
+# ==============================================================================
+# YOUR_BABY tracking - feedings, diapers, sleep, growth measurements
+# Uses HACS Baby Buddy integration + direct REST API queries
+#
+# CONTENTS:
+#   - Template sensors (lines ~15-340)
+#     - Computed metrics from HACS integration
+#     - Unit conversion (metric/imperial toggle)
+#     - Time since last event calculations
+#     - Daily totals and 7-day history
+#   - REST sensors (lines ~345-470)
+#     - Direct Baby Buddy API queries
+#     - Daily activity lists
+#     - Historical data for charts
+#   - REST commands (lines ~475-570)
+#     - Quick-log endpoints for dashboard
+#     - Feeding, diaper, sleep logging
+#   - Input helpers (lines ~575+)
+#     - DateTime pickers for log time
+#     - Text inputs for amounts/notes
+#     - Selectors for feeding type/method
+#     - Booleans for unit display and nap flag
+# ==============================================================================
+
+# ==============================================================================
+# TEMPLATE SENSORS
+# ==============================================================================
+# Computed sensors for baby dashboard - uses HACS Baby Buddy integration data
+# Unit toggle: input_boolean.baby_display_imperial (on=oz/lb/in, off=ml/g/cm)
+
+template:
+  - sensor:
+      # Last feeding in ml (metric)
+      - name: "YOUR_BABY Last Feeding ml"
+        unique_id: your_baby_last_feeding_ml
+        icon: mdi:baby-bottle-outline
+        unit_of_measurement: "ml"
+        state: "{{ states('sensor.your_baby_last_feeding') | float(0) | round(0) }}"
+        attributes:
+          time: "{{ state_attr('sensor.your_baby_last_feeding', 'start') }}"
+          type: "{{ state_attr('sensor.your_baby_last_feeding', 'type') }}"
+          method: "{{ state_attr('sensor.your_baby_last_feeding', 'method') }}"
+          id: >
+            {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+            {% if results and results | length > 0 %}
+              {{ (results | sort(attribute='start', reverse=true) | first).id }}
+            {% else %}
+              {{ state_attr('sensor.your_baby_last_feeding', 'id') | default('') }}
+            {% endif %}
+
+      # Last feeding in oz (imperial)
+      - name: "YOUR_BABY Last Feeding oz"
+        unique_id: your_baby_last_feeding_oz
+        icon: mdi:baby-bottle-outline
+        unit_of_measurement: "oz"
+        state: "{{ (states('sensor.your_baby_last_feeding') | float(0) / 29.5735) | round(1) }}"
+        attributes:
+          time: "{{ state_attr('sensor.your_baby_last_feeding', 'start') }}"
+          type: "{{ state_attr('sensor.your_baby_last_feeding', 'type') }}"
+          method: "{{ state_attr('sensor.your_baby_last_feeding', 'method') }}"
+          id: >
+            {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+            {% if results and results | length > 0 %}
+              {{ (results | sort(attribute='start', reverse=true) | first).id }}
+            {% else %}
+              {{ state_attr('sensor.your_baby_last_feeding', 'id') | default('') }}
+            {% endif %}
+
+      # Time since last feeding
+      - name: "YOUR_BABY Time Since Feeding"
+        unique_id: your_baby_time_since_feeding
+        icon: mdi:clock-outline
+        state: >
+          {% set last = state_attr('sensor.your_baby_last_feeding', 'start') %}
+          {% if last %}
+            {% set delta = (now() - (last | as_datetime)).total_seconds() / 3600 %}
+            {{ delta | round(1) }}
+          {% else %}
+            unknown
+          {% endif %}
+        unit_of_measurement: "hr"
+        attributes:
+          last_feeding: "{{ state_attr('sensor.your_baby_last_feeding', 'start') }}"
+
+      # Last weight in kg (metric)
+      - name: "YOUR_BABY Last Weight kg"
+        unique_id: your_baby_last_weight_kg
+        icon: mdi:scale-bathroom
+        unit_of_measurement: "kg"
+        state: "{{ (states('sensor.your_baby_last_weight') | float(0) / 1000) | round(2) }}"
+        attributes:
+          date: "{{ state_attr('sensor.your_baby_last_weight', 'date') }}"
+
+      # Last weight in lb (imperial)
+      - name: "YOUR_BABY Last Weight lb"
+        unique_id: your_baby_last_weight_lb
+        icon: mdi:scale-bathroom
+        unit_of_measurement: "lb"
+        state: "{{ (states('sensor.your_baby_last_weight') | float(0) / 453.592) | round(1) }}"
+        attributes:
+          date: "{{ state_attr('sensor.your_baby_last_weight', 'date') }}"
+
+      # Last height in cm (metric)
+      - name: "YOUR_BABY Last Height cm"
+        unique_id: your_baby_last_height_cm
+        icon: mdi:human-male-height
+        unit_of_measurement: "cm"
+        state: "{{ states('sensor.your_baby_last_height') | float(0) | round(1) }}"
+        attributes:
+          date: "{{ state_attr('sensor.your_baby_last_height', 'date') }}"
+
+      # Last height in inches (imperial)
+      - name: "YOUR_BABY Last Height in"
+        unique_id: your_baby_last_height_in
+        icon: mdi:human-male-height
+        unit_of_measurement: "in"
+        state: "{{ (states('sensor.your_baby_last_height') | float(0) / 2.54) | round(1) }}"
+        attributes:
+          date: "{{ state_attr('sensor.your_baby_last_height', 'date') }}"
+
+      # Last head circumference in cm (metric)
+      - name: "YOUR_BABY Last Head cm"
+        unique_id: your_baby_last_head_cm
+        icon: mdi:head
+        unit_of_measurement: "cm"
+        state: "{{ states('sensor.your_baby_last_head_circumference') | float(0) | round(1) }}"
+        attributes:
+          date: "{{ state_attr('sensor.your_baby_last_head_circumference', 'date') }}"
+
+      # Last head circumference in inches (imperial)
+      - name: "YOUR_BABY Last Head in"
+        unique_id: your_baby_last_head_in
+        icon: mdi:head
+        unit_of_measurement: "in"
+        state: "{{ (states('sensor.your_baby_last_head_circumference') | float(0) / 2.54) | round(1) }}"
+        attributes:
+          date: "{{ state_attr('sensor.your_baby_last_head_circumference', 'date') }}"
+
+      # Time since last diaper change
+      - name: "YOUR_BABY Time Since Diaper"
+        unique_id: your_baby_time_since_diaper
+        icon: mdi:clock-outline
+        state: >
+          {% set last = states('sensor.your_baby_last_change') %}
+          {% if last and last not in ['unknown', 'unavailable'] %}
+            {% set delta = (now() - (last | as_datetime)).total_seconds() / 3600 %}
+            {{ delta | round(1) }}
+          {% else %}
+            unknown
+          {% endif %}
+        unit_of_measurement: "hr"
+
+      # Last diaper type description (wet/solid + notes)
+      - name: "YOUR_BABY Last Diaper Type"
+        unique_id: your_baby_last_diaper_type
+        icon: mdi:paper-roll-outline
+        state: >
+          {% set wet = state_attr('sensor.your_baby_last_change', 'wet') %}
+          {% set solid = state_attr('sensor.your_baby_last_change', 'solid') %}
+          {% if wet and solid %}
+            Wet + Solid
+          {% elif wet %}
+            Wet
+          {% elif solid %}
+            Solid
+          {% else %}
+            -
+          {% endif %}
+        attributes:
+          wet: "{{ state_attr('sensor.your_baby_last_change', 'wet') }}"
+          solid: "{{ state_attr('sensor.your_baby_last_change', 'solid') }}"
+          notes: "{{ state_attr('sensor.your_baby_last_change', 'notes') }}"
+          time: "{{ state_attr('sensor.your_baby_last_change', 'time') }}"
+
+      # Last sleep duration in hours
+      - name: "YOUR_BABY Last Sleep Duration"
+        unique_id: your_baby_last_sleep_duration
+        icon: mdi:sleep
+        state: >
+          {% set minutes = states('sensor.your_baby_last_sleep') | float(0) %}
+          {{ (minutes / 60) | round(1) }}
+        unit_of_measurement: "hr"
+        attributes:
+          minutes: "{{ states('sensor.your_baby_last_sleep') | float(0) | round(0) }}"
+
+      # YOUR_BABY's age in months
+      - name: "YOUR_BABY Age"
+        unique_id: your_baby_age
+        icon: mdi:cake-variant
+        state: >
+          {% set birth = states('sensor.baby_your_baby') %}
+          {% if birth and birth not in ['unknown', 'unavailable'] %}
+            {% set days = (now().date() - strptime(birth, '%Y-%m-%d').date()).days %}
+            {% set months = (days / 30.44) | round(1) %}
+            {{ months }}
+          {% else %}
+            unknown
+          {% endif %}
+        unit_of_measurement: "months"
+        attributes:
+          birthdate: "{{ states('sensor.baby_your_baby') }}"
+          days_old: >
+            {% set birth = states('sensor.baby_your_baby') %}
+            {% if birth and birth not in ['unknown', 'unavailable'] %}
+              {{ (now().date() - strptime(birth, '%Y-%m-%d').date()).days }}
+            {% else %}
+              unknown
+            {% endif %}
+
+      # -------------------------------------------------------------------------
+      # LAST BOTTLE / LAST SOLID - For YOUR_BABY Details popup split display
+      # -------------------------------------------------------------------------
+      # Uses 7-day feedings data to find most recent bottle and most recent solid
+
+      # Last bottle feeding (formula or breast milk, not solid food)
+      - name: "YOUR_BABY Last Bottle ml"
+        unique_id: your_baby_last_bottle_ml
+        icon: mdi:baby-bottle
+        unit_of_measurement: "ml"
+        state: >
+          {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+          {% if results %}
+            {% set bottles = results | selectattr('type', 'ne', 'solid food') | list | sort(attribute='start', reverse=true) %}
+            {% if bottles | length > 0 %}
+              {{ bottles[0].amount | float(0) | round(0) }}
+            {% else %}
+              0
+            {% endif %}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          time: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set bottles = results | selectattr('type', 'ne', 'solid food') | list | sort(attribute='start', reverse=true) %}
+              {% if bottles | length > 0 %}{{ bottles[0].start }}{% endif %}
+            {% endif %}
+          type: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set bottles = results | selectattr('type', 'ne', 'solid food') | list | sort(attribute='start', reverse=true) %}
+              {% if bottles | length > 0 %}{{ bottles[0].type }}{% endif %}
+            {% endif %}
+          method: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set bottles = results | selectattr('type', 'ne', 'solid food') | list | sort(attribute='start', reverse=true) %}
+              {% if bottles | length > 0 %}{{ bottles[0].method }}{% endif %}
+            {% endif %}
+          notes: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set bottles = results | selectattr('type', 'ne', 'solid food') | list | sort(attribute='start', reverse=true) %}
+              {% if bottles | length > 0 %}{{ bottles[0].notes | default('') }}{% endif %}
+            {% endif %}
+          id: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set bottles = results | selectattr('type', 'ne', 'solid food') | list | sort(attribute='start', reverse=true) %}
+              {% if bottles | length > 0 %}{{ bottles[0].id }}{% endif %}
+            {% endif %}
+
+      # Last bottle in oz (imperial)
+      - name: "YOUR_BABY Last Bottle oz"
+        unique_id: your_baby_last_bottle_oz
+        icon: mdi:baby-bottle
+        unit_of_measurement: "oz"
+        state: "{{ (states('sensor.your_baby_last_bottle_ml') | float(0) / 29.5735) | round(1) }}"
+        attributes:
+          time: "{{ state_attr('sensor.your_baby_last_bottle_ml', 'time') }}"
+          type: "{{ state_attr('sensor.your_baby_last_bottle_ml', 'type') }}"
+          method: "{{ state_attr('sensor.your_baby_last_bottle_ml', 'method') }}"
+          notes: "{{ state_attr('sensor.your_baby_last_bottle_ml', 'notes') }}"
+          id: "{{ state_attr('sensor.your_baby_last_bottle_ml', 'id') }}"
+
+      # Last solid food feeding
+      - name: "YOUR_BABY Last Solid"
+        unique_id: your_baby_last_solid
+        icon: mdi:food-apple
+        state: >
+          {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+          {% if results %}
+            {% set solids = results | selectattr('type', 'eq', 'solid food') | list | sort(attribute='start', reverse=true) %}
+            {% if solids | length > 0 %}
+              {{ solids[0].notes | default('(no food noted)') | truncate(30) }}
+            {% else %}
+              No solids
+            {% endif %}
+          {% else %}
+            No solids
+          {% endif %}
+        attributes:
+          food: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set solids = results | selectattr('type', 'eq', 'solid food') | list | sort(attribute='start', reverse=true) %}
+              {% if solids | length > 0 %}{{ solids[0].notes | default('(no food noted)') }}{% endif %}
+            {% endif %}
+          time: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set solids = results | selectattr('type', 'eq', 'solid food') | list | sort(attribute='start', reverse=true) %}
+              {% if solids | length > 0 %}{{ solids[0].start }}{% endif %}
+            {% endif %}
+          method: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set solids = results | selectattr('type', 'eq', 'solid food') | list | sort(attribute='start', reverse=true) %}
+              {% if solids | length > 0 %}{{ solids[0].method }}{% endif %}
+            {% endif %}
+          id: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set solids = results | selectattr('type', 'eq', 'solid food') | list | sort(attribute='start', reverse=true) %}
+              {% if solids | length > 0 %}{{ solids[0].id }}{% endif %}
+            {% endif %}
+
+      # Last diaper change (from 7-day REST sensor)
+      - name: "YOUR_BABY Last Diaper"
+        unique_id: your_baby_last_diaper
+        icon: mdi:paper-roll
+        state: >
+          {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+          {% if results and results | length > 0 %}
+            {% set last = results | sort(attribute='time', reverse=true) | first %}
+            {% set parts = [] %}
+            {% if last.wet %}{% set parts = parts + ['Wet'] %}{% endif %}
+            {% if last.solid %}{% set parts = parts + ['Solid'] %}{% endif %}
+            {{ parts | join(' + ') if parts else 'Dry' }}
+          {% else %}
+            Unknown
+          {% endif %}
+        attributes:
+          time: >
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results and results | length > 0 %}
+              {% set last = results | sort(attribute='time', reverse=true) | first %}
+              {{ last.time }}
+            {% endif %}
+          wet: >
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results and results | length > 0 %}
+              {% set last = results | sort(attribute='time', reverse=true) | first %}
+              {{ last.wet }}
+            {% endif %}
+          solid: >
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results and results | length > 0 %}
+              {% set last = results | sort(attribute='time', reverse=true) | first %}
+              {{ last.solid }}
+            {% endif %}
+          color: >
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results and results | length > 0 %}
+              {% set last = results | sort(attribute='time', reverse=true) | first %}
+              {{ last.color | default('') }}
+            {% endif %}
+          notes: >
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results and results | length > 0 %}
+              {% set last = results | sort(attribute='time', reverse=true) | first %}
+              {{ last.notes | default('') }}
+            {% endif %}
+          id: >
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results and results | length > 0 %}
+              {% set last = results | sort(attribute='time', reverse=true) | first %}
+              {{ last.id }}
+            {% endif %}
+
+      # -------------------------------------------------------------------------
+      # DIAPER TRACKING SENSORS - Today's count, list, and last dirty
+      # -------------------------------------------------------------------------
+
+      # Today's diaper count
+      - name: "YOUR_BABY Diapers Today Count"
+        unique_id: your_baby_diapers_today_count
+        icon: mdi:counter
+        state: >
+          {% set results = state_attr('sensor.babybuddy_changes_today', 'results') %}
+          {% if results %}{{ results | length }}{% else %}0{% endif %}
+
+      # Today's diapers formatted as markdown list
+      - name: "YOUR_BABY Diapers Today List"
+        unique_id: your_baby_diapers_today_list
+        icon: mdi:format-list-bulleted
+        state: >
+          {% set results = state_attr('sensor.babybuddy_changes_today', 'results') %}
+          {% if results and results | length > 0 %}
+            {{ results | length }} diapers
+          {% else %}
+            No diapers today
+          {% endif %}
+        attributes:
+          markdown: |
+            {% set results = state_attr('sensor.babybuddy_changes_today', 'results') %}
+            {% if results and results | length > 0 %}
+            {% for d in results | sort(attribute='time', reverse=true) %}
+            {% set type_parts = [] %}
+            {% if d.wet %}{% set type_parts = type_parts + ['Wet'] %}{% endif %}
+            {% if d.solid %}{% set type_parts = type_parts + ['💩'] %}{% endif %}
+            - **{{ d.time | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}** - {{ type_parts | join(' + ') if type_parts else 'Dry' }}{% if d.notes %} — *{{ d.notes }}*{% endif %}
+            {% endfor %}
+            {% else %}
+            *No diapers recorded today*
+            {% endif %}
+
+      # Last dirty/BM diaper (key metric - this is what parents track)
+      - name: "YOUR_BABY Last Dirty Diaper"
+        unique_id: your_baby_last_dirty_diaper
+        icon: mdi:emoticon-poop
+        state: >
+          {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+          {% if results %}
+            {% set dirty = results | selectattr('solid', 'eq', true) | list | sort(attribute='time', reverse=true) %}
+            {% if dirty | length > 0 %}
+              {% set last_time = dirty[0].time | as_datetime | as_local %}
+              {% set hours = ((now() - last_time).total_seconds() / 3600) | round(1) %}
+              {{ hours }}
+            {% else %}
+              unknown
+            {% endif %}
+          {% else %}
+            unknown
+          {% endif %}
+        unit_of_measurement: "hr"
+        attributes:
+          time: >
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results %}
+              {% set dirty = results | selectattr('solid', 'eq', true) | list | sort(attribute='time', reverse=true) %}
+              {% if dirty | length > 0 %}{{ dirty[0].time }}{% endif %}
+            {% endif %}
+          notes: >
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results %}
+              {% set dirty = results | selectattr('solid', 'eq', true) | list | sort(attribute='time', reverse=true) %}
+              {% if dirty | length > 0 %}{{ dirty[0].notes | default('') }}{% endif %}
+            {% endif %}
+
+      # Today's feeding count from REST sensor
+      - name: "YOUR_BABY Feedings Today Count"
+        unique_id: your_baby_feedings_today_count
+        icon: mdi:counter
+        state: >
+          {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+          {% if results %}{{ results | length }}{% else %}0{% endif %}
+
+      # Today's feeding total (ml) - state_class enables statistics for ApexCharts
+      - name: "YOUR_BABY Feedings Today Total ml"
+        unique_id: your_baby_feedings_today_total_ml
+        icon: mdi:baby-bottle
+        unit_of_measurement: "ml"
+        state_class: measurement
+        state: >
+          {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+          {% if results %}
+            {% set ns = namespace(total=0) %}
+            {% for f in results %}
+              {% set ns.total = ns.total + (f.amount | float(0)) %}
+            {% endfor %}
+            {{ ns.total | round(0) }}
+          {% else %}
+            0
+          {% endif %}
+
+      # Today's feeding total (oz)
+      - name: "YOUR_BABY Feedings Today Total oz"
+        unique_id: your_baby_feedings_today_total_oz
+        icon: mdi:baby-bottle
+        unit_of_measurement: "oz"
+        state: "{{ (states('sensor.your_baby_feedings_today_total_ml') | float(0) / 29.5735) | round(1) }}"
+
+      # Today's feedings formatted as markdown list (all types)
+      - name: "YOUR_BABY Feedings Today List"
+        unique_id: your_baby_feedings_today_list
+        icon: mdi:format-list-bulleted
+        state: >
+          {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+          {% if results and results | length > 0 %}
+            {{ results | length }} feedings
+          {% else %}
+            No feedings today
+          {% endif %}
+        attributes:
+          markdown: |
+            {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+            {% if results and results | length > 0 %}
+            {% for f in results | sort(attribute='start', reverse=true) %}
+            - **{{ f.start | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}** - {{ f.amount | round(0) }} ml ({{ (f.amount / 29.5735) | round(1) }} oz){% if f.notes %} — *{{ f.notes }}*{% endif %}
+            {% endfor %}
+            {% else %}
+            *No feedings recorded today*
+            {% endif %}
+
+      # Today's bottles only (formula + breast milk)
+      - name: "YOUR_BABY Bottles Today List"
+        unique_id: your_baby_bottles_today_list
+        icon: mdi:baby-bottle
+        state: >
+          {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+          {% if results %}
+            {% set bottles = results | selectattr('type', 'ne', 'solid food') | list %}
+            {{ bottles | length }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          markdown: |
+            {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+            {% if results %}
+            {% set bottles = results | selectattr('type', 'ne', 'solid food') | list %}
+            {% if bottles | length > 0 %}
+            {% for f in bottles | sort(attribute='start', reverse=true) %}
+            - **{{ f.start | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}** - {{ f.amount | round(0) }} ml ({{ (f.amount / 29.5735) | round(1) }} oz){% if f.notes %} — *{{ f.notes }}*{% endif %}
+            {% endfor %}
+            {% else %}
+            *No bottles today*
+            {% endif %}
+            {% else %}
+            *No bottles today*
+            {% endif %}
+
+      # Today's solid foods only
+      - name: "YOUR_BABY Solids Today List"
+        unique_id: your_baby_solids_today_list
+        icon: mdi:food-apple
+        state: >
+          {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+          {% if results %}
+            {% set solids = results | selectattr('type', 'eq', 'solid food') | list %}
+            {{ solids | length }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          markdown: |
+            {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
+            {% if results %}
+            {% set solids = results | selectattr('type', 'eq', 'solid food') | list %}
+            {% if solids | length > 0 %}
+            {% for f in solids | sort(attribute='start', reverse=true) %}
+            - **{{ f.start | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}** - {{ f.notes | default('(no food noted)') }} ({{ f.method }})
+            {% endfor %}
+            {% else %}
+            *No solids today*
+            {% endif %}
+            {% else %}
+            *No solids today*
+            {% endif %}
+
+      # 7-day daily totals for chart (from Baby Buddy API data)
+      - name: "YOUR_BABY Feedings 7 Day Totals"
+        unique_id: your_baby_feedings_7_day_totals
+        icon: mdi:chart-line
+        state: >
+          {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+          {{ results | length if results else 0 }} feedings
+        attributes:
+          daily_totals: >
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set ns = namespace(days={}) %}
+              {% for f in results %}
+                {% set day = (f.start | as_datetime | as_local).strftime('%Y-%m-%d') %}
+                {% set current = ns.days.get(day, 0) %}
+                {% set ns.days = dict(ns.days, **{day: current + (f.amount | float(0))}) %}
+              {% endfor %}
+              {{ ns.days | dictsort }}
+            {% else %}
+              []
+            {% endif %}
+
+      # -------------------------------------------------------------------------
+      # SLEEP TRACKING SENSORS (from REST API data)
+      # -------------------------------------------------------------------------
+
+      # Today's sleep count
+      - name: "YOUR_BABY Sleep Today Count"
+        unique_id: your_baby_sleep_today_count
+        icon: mdi:counter
+        state: >
+          {% set results = state_attr('sensor.babybuddy_sleep_today', 'results') %}
+          {% if results %}{{ results | length }}{% else %}0{% endif %}
+
+      # Today's total sleep duration in hours
+      - name: "YOUR_BABY Sleep Today Total"
+        unique_id: your_baby_sleep_today_total
+        icon: mdi:sleep
+        unit_of_measurement: "hr"
+        state: >
+          {% set results = state_attr('sensor.babybuddy_sleep_today', 'results') %}
+          {% if results %}
+            {% set ns = namespace(total=0) %}
+            {% for s in results %}
+              {% set parts = s.duration.split(':') %}
+              {% set hours = parts[0] | int %}
+              {% set minutes = parts[1] | int %}
+              {% set secs = parts[2].split('.')[0] | int %}
+              {% set ns.total = ns.total + hours * 3600 + minutes * 60 + secs %}
+            {% endfor %}
+            {{ (ns.total / 3600) | round(1) }}
+          {% else %}
+            0
+          {% endif %}
+
+      # Today's nap count
+      - name: "YOUR_BABY Naps Today Count"
+        unique_id: your_baby_naps_today_count
+        icon: mdi:power-sleep
+        state: >
+          {% set results = state_attr('sensor.babybuddy_sleep_today', 'results') %}
+          {% if results %}
+            {{ results | selectattr('nap', 'eq', true) | list | length }}
+          {% else %}
+            0
+          {% endif %}
+
+      # Today's sleep formatted as markdown list
+      - name: "YOUR_BABY Sleep Today List"
+        unique_id: your_baby_sleep_today_list
+        icon: mdi:format-list-bulleted
+        state: >
+          {% set results = state_attr('sensor.babybuddy_sleep_today', 'results') %}
+          {% if results and results | length > 0 %}
+            {{ results | length }} sleeps
+          {% else %}
+            No sleep today
+          {% endif %}
+        attributes:
+          markdown: |
+            {% set results = state_attr('sensor.babybuddy_sleep_today', 'results') %}
+            {% if results and results | length > 0 %}
+            {% for s in results | sort(attribute='start', reverse=true) %}
+            {% set start_time = s.start | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') %}
+            {% set end_time = s.end | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') %}
+            {% set parts = s.duration.split(':') %}
+            {% set dur_hr = parts[0] | int %}
+            {% set dur_min = parts[1] | int %}
+            - **{{ start_time }} - {{ end_time }}** ({{ dur_hr }}h {{ dur_min }}m){% if s.nap %} 💤 Nap{% endif %}{% if s.notes %} — *{{ s.notes }}*{% endif %}
+            {% endfor %}
+            {% else %}
+            *No sleep recorded today*
+            {% endif %}
+
+      # 7-day daily totals for chart (from Baby Buddy API data)
+      - name: "YOUR_BABY Sleep 7 Day Totals"
+        unique_id: your_baby_sleep_7_day_totals
+        icon: mdi:chart-line
+        state: >
+          {% set results = state_attr('sensor.babybuddy_sleep_7_days', 'results') %}
+          {{ results | length if results else 0 }} sleeps
+        attributes:
+          daily_totals: >
+            {% set results = state_attr('sensor.babybuddy_sleep_7_days', 'results') %}
+            {% if results %}
+              {% set ns = namespace(days={}) %}
+              {% for s in results %}
+                {% set day = (s.start | as_datetime | as_local).strftime('%Y-%m-%d') %}
+                {% set parts = s.duration.split(':') %}
+                {% set hours = parts[0] | int %}
+                {% set minutes = parts[1] | int %}
+                {% set secs = parts[2].split('.')[0] | int %}
+                {% set duration_hrs = (hours * 3600 + minutes * 60 + secs) / 3600 %}
+                {% set current = ns.days.get(day, 0) %}
+                {% set ns.days = dict(ns.days, **{day: current + duration_hrs}) %}
+              {% endfor %}
+              {{ ns.days | dictsort }}
+            {% else %}
+              []
+            {% endif %}
+
+      # -------------------------------------------------------------------------
+      # DATE NAVIGATION SENSORS - For scrolling through historical data
+      # -------------------------------------------------------------------------
+      # Uses input_number.baby_date_offset (-6 to 0) to select which day to view
+
+      # Display-friendly selected date (e.g., "Friday, Jan 17")
+      - name: "Baby Selected Date"
+        unique_id: baby_selected_date
+        icon: mdi:calendar
+        state: >
+          {% set offset = states('input_number.baby_date_offset') | int(0) %}
+          {% set selected = now() + timedelta(days=offset) %}
+          {{ selected.strftime('%A, %b %d') }}
+        attributes:
+          date_iso: >
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {{ (now() + timedelta(days=offset)).strftime('%Y-%m-%d') }}
+          is_today: "{{ states('input_number.baby_date_offset') | int(0) == 0 }}"
+
+      # Selected day's bottles (count, total, and markdown list)
+      # NOTE: Filter by LOCAL date, not UTC. API returns UTC timestamps.
+      - name: "Baby Selected Day Bottles"
+        unique_id: baby_selected_day_bottles
+        icon: mdi:baby-bottle
+        state: >
+          {% set offset = states('input_number.baby_date_offset') | int(0) %}
+          {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+          {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+          {% if results %}
+            {% set bottles = results | selectattr('type', 'ne', 'solid food') | list %}
+            {% set ns = namespace(count=0) %}
+            {% for f in bottles %}
+              {% if (f.start | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                {% set ns.count = ns.count + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.count }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          total_ml: >
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set bottles = results | selectattr('type', 'ne', 'solid food') | list %}
+              {% set ns = namespace(total=0) %}
+              {% for f in bottles %}
+                {% if (f.start | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                  {% set ns.total = ns.total + (f.amount | float(0)) %}
+                {% endif %}
+              {% endfor %}
+              {{ ns.total | round(0) }}
+            {% else %}
+              0
+            {% endif %}
+          total_oz: >
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+              {% set bottles = results | selectattr('type', 'ne', 'solid food') | list %}
+              {% set ns = namespace(total=0) %}
+              {% for f in bottles %}
+                {% if (f.start | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                  {% set ns.total = ns.total + (f.amount | float(0)) %}
+                {% endif %}
+              {% endfor %}
+              {{ (ns.total / 29.5735) | round(1) }}
+            {% else %}
+              0
+            {% endif %}
+          markdown: |
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+            {% set bottles = results | selectattr('type', 'ne', 'solid food') | list %}
+            {% set ns = namespace(day_bottles=[]) %}
+            {% for f in bottles %}
+              {% if (f.start | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                {% set ns.day_bottles = ns.day_bottles + [f] %}
+              {% endif %}
+            {% endfor %}
+            {% set day_bottles = ns.day_bottles | sort(attribute='start', reverse=true) %}
+            {% if day_bottles | length > 0 %}
+            {% for f in day_bottles %}
+            - **{{ f.start | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}** - {{ f.amount | round(0) }} ml ({{ (f.amount / 29.5735) | round(1) }} oz){% if f.notes %} — *{{ f.notes }}*{% endif %}
+            {% endfor %}
+            {% else %}
+            *No bottles recorded*
+            {% endif %}
+            {% else %}
+            *No data available*
+            {% endif %}
+
+      # Selected day's solids (count and markdown list)
+      # NOTE: Filter by LOCAL date, not UTC. API returns UTC timestamps.
+      - name: "Baby Selected Day Solids"
+        unique_id: baby_selected_day_solids
+        icon: mdi:food-apple
+        state: >
+          {% set offset = states('input_number.baby_date_offset') | int(0) %}
+          {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+          {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+          {% if results %}
+            {% set solids = results | selectattr('type', 'eq', 'solid food') | list %}
+            {% set ns = namespace(count=0) %}
+            {% for f in solids %}
+              {% if (f.start | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                {% set ns.count = ns.count + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.count }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          markdown: |
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+            {% set results = state_attr('sensor.babybuddy_feedings_7_days', 'results') %}
+            {% if results %}
+            {% set solids = results | selectattr('type', 'eq', 'solid food') | list %}
+            {% set ns = namespace(day_solids=[]) %}
+            {% for f in solids %}
+              {% if (f.start | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                {% set ns.day_solids = ns.day_solids + [f] %}
+              {% endif %}
+            {% endfor %}
+            {% set day_solids = ns.day_solids | sort(attribute='start', reverse=true) %}
+            {% if day_solids | length > 0 %}
+            {% for f in day_solids %}
+            - **{{ f.start | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}** - {{ f.notes | default('(no food noted)') }} ({{ f.method }})
+            {% endfor %}
+            {% else %}
+            *No solids recorded*
+            {% endif %}
+            {% else %}
+            *No data available*
+            {% endif %}
+
+      # Selected day's sleep (count, total hours, nap count, markdown list)
+      # NOTE: Filter by END time (when sleep finished) to match overnight sleep behavior.
+      # Sleep that ends on a given day counts for that day, regardless of when it started.
+      - name: "Baby Selected Day Sleep"
+        unique_id: baby_selected_day_sleep
+        icon: mdi:sleep
+        state: >
+          {% set offset = states('input_number.baby_date_offset') | int(0) %}
+          {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+          {% set results = state_attr('sensor.babybuddy_sleep_7_days', 'results') %}
+          {% if results %}
+            {% set ns = namespace(count=0) %}
+            {% for s in results %}
+              {% if (s.end | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                {% set ns.count = ns.count + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.count }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          total_hours: >
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+            {% set results = state_attr('sensor.babybuddy_sleep_7_days', 'results') %}
+            {% if results %}
+              {% set ns = namespace(total=0) %}
+              {% for s in results %}
+                {% if (s.end | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                  {% set parts = s.duration.split(':') %}
+                  {% set hours = parts[0] | int %}
+                  {% set minutes = parts[1] | int %}
+                  {% set secs = parts[2].split('.')[0] | int %}
+                  {% set ns.total = ns.total + hours * 3600 + minutes * 60 + secs %}
+                {% endif %}
+              {% endfor %}
+              {{ (ns.total / 3600) | round(1) }}
+            {% else %}
+              0
+            {% endif %}
+          nap_count: >
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+            {% set results = state_attr('sensor.babybuddy_sleep_7_days', 'results') %}
+            {% if results %}
+              {% set ns = namespace(count=0) %}
+              {% for s in results %}
+                {% if (s.end | as_datetime | as_local).strftime('%Y-%m-%d') == target_date and s.nap == true %}
+                  {% set ns.count = ns.count + 1 %}
+                {% endif %}
+              {% endfor %}
+              {{ ns.count }}
+            {% else %}
+              0
+            {% endif %}
+          markdown: |
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+            {% set results = state_attr('sensor.babybuddy_sleep_7_days', 'results') %}
+            {% if results %}
+            {% set ns = namespace(day_sleep=[]) %}
+            {% for s in results %}
+              {% if (s.end | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                {% set ns.day_sleep = ns.day_sleep + [s] %}
+              {% endif %}
+            {% endfor %}
+            {% set day_sleep = ns.day_sleep | sort(attribute='end', reverse=true) %}
+            {% if day_sleep | length > 0 %}
+            {% for s in day_sleep %}
+            {% set start_time = s.start | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') %}
+            {% set end_time = s.end | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') %}
+            {% set parts = s.duration.split(':') %}
+            {% set dur_hr = parts[0] | int %}
+            {% set dur_min = parts[1] | int %}
+            - **{{ start_time }} - {{ end_time }}** ({{ dur_hr }}h {{ dur_min }}m){% if s.nap %} 💤 Nap{% endif %}{% if s.notes %} — *{{ s.notes }}*{% endif %}
+            {% endfor %}
+            {% else %}
+            *No sleep recorded*
+            {% endif %}
+            {% else %}
+            *No data available*
+            {% endif %}
+
+      # Selected day's diapers (count, dirty count, markdown list)
+      # NOTE: Filter by LOCAL date, not UTC. API returns UTC timestamps.
+      - name: "Baby Selected Day Diapers"
+        unique_id: baby_selected_day_diapers
+        icon: mdi:paper-roll
+        state: >
+          {% set offset = states('input_number.baby_date_offset') | int(0) %}
+          {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+          {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+          {% if results %}
+            {% set ns = namespace(count=0) %}
+            {% for d in results %}
+              {% if (d.time | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                {% set ns.count = ns.count + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.count }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          dirty_count: >
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results %}
+              {% set ns = namespace(count=0) %}
+              {% for d in results %}
+                {% if (d.time | as_datetime | as_local).strftime('%Y-%m-%d') == target_date and d.solid == true %}
+                  {% set ns.count = ns.count + 1 %}
+                {% endif %}
+              {% endfor %}
+              {{ ns.count }}
+            {% else %}
+              0
+            {% endif %}
+          markdown: |
+            {% set offset = states('input_number.baby_date_offset') | int(0) %}
+            {% set target_date = (now() + timedelta(days=offset)).strftime('%Y-%m-%d') %}
+            {% set results = state_attr('sensor.babybuddy_diapers_7_days', 'results') %}
+            {% if results %}
+            {% set ns = namespace(day_diapers=[]) %}
+            {% for d in results %}
+              {% if (d.time | as_datetime | as_local).strftime('%Y-%m-%d') == target_date %}
+                {% set ns.day_diapers = ns.day_diapers + [d] %}
+              {% endif %}
+            {% endfor %}
+            {% set day_diapers = ns.day_diapers | sort(attribute='time', reverse=true) %}
+            {% if day_diapers | length > 0 %}
+            {% for d in day_diapers %}
+            {% set diaper_time = d.time | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') %}
+            {% set type_parts = [] %}
+            {% if d.wet %}{% set type_parts = type_parts + ['Wet'] %}{% endif %}
+            {% if d.solid %}{% set type_parts = type_parts + ['💩'] %}{% endif %}
+            - **{{ diaper_time }}** - {{ type_parts | join(' + ') if type_parts else 'Dry' }}{% if d.notes %} — *{{ d.notes }}*{% endif %}
+            {% endfor %}
+            {% else %}
+            *No diapers recorded*
+            {% endif %}
+            {% else %}
+            *No data available*
+            {% endif %}
+
+      # -------------------------------------------------------------------------
+      # QUICK-LOG INPUT CONVERSION SENSORS
+      # -------------------------------------------------------------------------
+      # Converts user input (oz or ml based on unit preference) to ml for API
+
+      # Converts feeding amount input to ml for API submission
+      - name: "Baby Feeding Amount ml"
+        unique_id: baby_feeding_amount_ml
+        icon: mdi:baby-bottle
+        unit_of_measurement: "ml"
+        state: >
+          {% set input = states('input_text.baby_feeding_amount_input') | float(0) %}
+          {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+            {{ (input * 29.5735) | round(0) }}
+          {% else %}
+            {{ input | round(0) }}
+          {% endif %}
+
+      # Shows current unit label for feeding input
+      - name: "Baby Feeding Unit Label"
+        unique_id: baby_feeding_unit_label
+        icon: mdi:scale
+        state: "{{ 'oz' if is_state('input_boolean.baby_display_imperial', 'on') else 'ml' }}"
+
+      # -------------------------------------------------------------------------
+      # Growth measurement conversions for API
+      # -------------------------------------------------------------------------
+
+      # Weight: converts user input to grams for API
+      # Imperial: user enters lb → grams (lb * 453.592)
+      # Metric: user enters kg → grams (kg * 1000)
+      - name: "Baby Growth Weight Grams"
+        unique_id: baby_growth_weight_grams
+        icon: mdi:scale
+        unit_of_measurement: "g"
+        state: >
+          {% set input = states('input_text.baby_growth_weight') | float(0) %}
+          {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+            {{ (input * 453.592) | round(0) }}
+          {% else %}
+            {{ (input * 1000) | round(0) }}
+          {% endif %}
+
+      # Height: converts user input to cm for API
+      # Imperial: user enters inches → cm (in * 2.54)
+      # Metric: user enters cm → no conversion
+      - name: "Baby Growth Height CM"
+        unique_id: baby_growth_height_cm
+        icon: mdi:human-male-height
+        unit_of_measurement: "cm"
+        state: >
+          {% set input = states('input_text.baby_growth_height') | float(0) %}
+          {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+            {{ (input * 2.54) | round(1) }}
+          {% else %}
+            {{ input | round(1) }}
+          {% endif %}
+
+      # Head circumference: converts user input to cm for API
+      # Imperial: user enters inches → cm (in * 2.54)
+      # Metric: user enters cm → no conversion
+      - name: "Baby Growth Head CM"
+        unique_id: baby_growth_head_cm
+        icon: mdi:head
+        unit_of_measurement: "cm"
+        state: >
+          {% set input = states('input_text.baby_growth_head') | float(0) %}
+          {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+            {{ (input * 2.54) | round(1) }}
+          {% else %}
+            {{ input | round(1) }}
+          {% endif %}
+
+      # Edit feeding amount converted to ml (for API call)
+      - name: "Baby Edit Feeding Amount ml"
+        unique_id: baby_edit_feeding_amount_ml
+        icon: mdi:baby-bottle
+        unit_of_measurement: "ml"
+        state: >
+          {% set input = states('input_text.baby_edit_feeding_amount_input') | float(0) %}
+          {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+            {{ (input * 29.5735) | round(0) }}
+          {% else %}
+            {{ input | round(0) }}
+          {% endif %}
+
+# ==============================================================================
+# REST SENSORS
+# ==============================================================================
+# Direct API queries for daily totals and lists (HACS integration only provides "last" values)
+# API key stored in secrets.yaml as babybuddy_api_token
+
+rest:
+  # Today's feedings from Baby Buddy API
+  # Use today_at() to get local midnight, then convert to ISO format with timezone
+  - resource_template: "http://YOUR_HA_IP:8000/api/feedings/?child=1&start_min={{ today_at('00:00').isoformat() }}"
+    scan_interval: 60
+    headers:
+      Authorization: !secret babybuddy_api_token
+    sensor:
+      - name: "BabyBuddy Feedings Today"
+        unique_id: babybuddy_feedings_today
+        value_template: "{{ value_json.count }}"
+        json_attributes:
+          - results
+          - count
+
+  # Today's diaper changes from Baby Buddy API
+  # Note: changes endpoint uses 'date' field, filter with date_min (YYYY-MM-DD format)
+  - resource_template: "http://YOUR_HA_IP:8000/api/changes/?child=1&date_min={{ today_at('00:00').strftime('%Y-%m-%d') }}&date_max={{ (today_at('00:00') + timedelta(days=1)).strftime('%Y-%m-%d') }}"
+    scan_interval: 60
+    headers:
+      Authorization: !secret babybuddy_api_token
+    sensor:
+      - name: "BabyBuddy Changes Today"
+        unique_id: babybuddy_changes_today
+        value_template: "{{ value_json.count }}"
+        json_attributes:
+          - results
+          - count
+
+  # Today's sleep from Baby Buddy API
+  # Use end_min to capture overnight sleep that started yesterday but ended today
+  - resource_template: "http://YOUR_HA_IP:8000/api/sleep/?child=1&end_min={{ today_at('00:00').isoformat() }}&end_max={{ (today_at('00:00') + timedelta(days=1)).isoformat() }}"
+    scan_interval: 60
+    headers:
+      Authorization: !secret babybuddy_api_token
+    sensor:
+      - name: "BabyBuddy Sleep Today"
+        unique_id: babybuddy_sleep_today
+        value_template: "{{ value_json.count }}"
+        json_attributes:
+          - results
+          - count
+
+  # Last 7 days of feedings from Baby Buddy API (for historical chart)
+  - resource_template: "http://YOUR_HA_IP:8000/api/feedings/?child=1&start_min={{ (today_at('00:00') - timedelta(days=7)).isoformat() }}&limit=500"
+    scan_interval: 300
+    headers:
+      Authorization: !secret babybuddy_api_token
+    sensor:
+      - name: "BabyBuddy Feedings 7 Days"
+        unique_id: babybuddy_feedings_7_days
+        value_template: "{{ value_json.count }}"
+        json_attributes:
+          - results
+          - count
+
+  # Last 7 days of sleep from Baby Buddy API (for historical chart)
+  - resource_template: "http://YOUR_HA_IP:8000/api/sleep/?child=1&start_min={{ (today_at('00:00') - timedelta(days=7)).isoformat() }}&limit=500"
+    scan_interval: 300
+    headers:
+      Authorization: !secret babybuddy_api_token
+    sensor:
+      - name: "BabyBuddy Sleep 7 Days"
+        unique_id: babybuddy_sleep_7_days
+        value_template: "{{ value_json.count }}"
+        json_attributes:
+          - results
+          - count
+
+  # Last 7 days of diapers from Baby Buddy API (for edit functionality)
+  # Note: changes endpoint uses 'date' field, filter with date_min (YYYY-MM-DD format)
+  - resource_template: "http://YOUR_HA_IP:8000/api/changes/?child=1&date_min={{ (today_at('00:00') - timedelta(days=7)).strftime('%Y-%m-%d') }}&limit=500"
+    scan_interval: 300
+    headers:
+      Authorization: !secret babybuddy_api_token
+    sensor:
+      - name: "BabyBuddy Diapers 7 Days"
+        unique_id: babybuddy_diapers_7_days
+        value_template: "{{ value_json.count }}"
+        json_attributes:
+          - results
+          - count
+
+  # All weight measurements from Baby Buddy API (for growth chart)
+  - resource: "http://YOUR_HA_IP:8000/api/weight/?child=1&limit=100"
+    scan_interval: 3600
+    headers:
+      Authorization: !secret babybuddy_api_token
+    sensor:
+      - name: "BabyBuddy Weight History"
+        unique_id: babybuddy_weight_history
+        value_template: "{{ value_json.count }}"
+        json_attributes:
+          - results
+
+  # All height measurements from Baby Buddy API (for growth chart)
+  - resource: "http://YOUR_HA_IP:8000/api/height/?child=1&limit=100"
+    scan_interval: 3600
+    headers:
+      Authorization: !secret babybuddy_api_token
+    sensor:
+      - name: "BabyBuddy Height History"
+        unique_id: babybuddy_height_history
+        value_template: "{{ value_json.count }}"
+        json_attributes:
+          - results
+
+  # All head circumference measurements from Baby Buddy API (for growth chart)
+  - resource: "http://YOUR_HA_IP:8000/api/head-circumference/?child=1&limit=100"
+    scan_interval: 3600
+    headers:
+      Authorization: !secret babybuddy_api_token
+    sensor:
+      - name: "BabyBuddy Head History"
+        unique_id: babybuddy_head_history
+        value_template: "{{ value_json.count }}"
+        json_attributes:
+          - results
+
+# ==============================================================================
+# REST COMMANDS
+# ==============================================================================
+# POST to Baby Buddy API for quick logging from dashboard popup forms
+# All commands use input helpers set by popup forms
+# API docs: https://docs.baby-buddy.net/api/
+
+rest_command:
+  # Log feeding - uses input helpers for time, amount, type, method, and notes
+  babybuddy_log_feeding:
+    url: "http://YOUR_HA_IP:8000/api/feedings/"
+    method: POST
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {"child": 1,
+       "start": "{{ today_at(states('input_datetime.baby_log_time')).isoformat() }}",
+       "end": "{{ today_at(states('input_datetime.baby_log_time')).isoformat() }}",
+       "type": "{{ states('input_select.baby_feeding_type') | lower }}",
+       "method": "{{ states('input_select.baby_feeding_method') | lower }}",
+       "amount": {{ states('sensor.baby_feeding_amount_ml') | int }},
+       "notes": "{{ states('input_text.baby_feeding_notes') }}"}
+
+  # Log diaper - single command with wet/solid parameters passed from button tap
+  babybuddy_log_diaper:
+    url: "http://YOUR_HA_IP:8000/api/changes/"
+    method: POST
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {"child": 1,
+       "time": "{{ today_at(states('input_datetime.baby_log_time')).isoformat() }}",
+       "wet": {{ wet | default(false) | lower }},
+       "solid": {{ solid | default(false) | lower }},
+       "notes": "{{ states('input_text.baby_diaper_notes') }}"}
+
+  # Update existing feeding - uses feeding_id parameter and edit input helpers
+  # Only includes amount/notes in payload if they are populated (non-empty)
+  babybuddy_update_feeding:
+    url: "http://YOUR_HA_IP:8000/api/feedings/{{ feeding_id }}/"
+    method: PATCH
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {% set amount = states('input_text.baby_edit_feeding_amount_input') %}
+      {% set notes = states('input_text.baby_edit_feeding_notes') %}
+      {% set parts = [] %}
+      {% if amount and amount | float(0) > 0 %}
+        {% set parts = parts + ['"amount": ' ~ (states('sensor.baby_edit_feeding_amount_ml') | int | string)] %}
+      {% endif %}
+      {% if notes and notes | length > 0 %}
+        {% set parts = parts + ['"notes": "' ~ notes ~ '"'] %}
+      {% endif %}
+      { {{ parts | join(', ') }} }
+
+  # Log solid food - uses food name/notes input, solid method, no amount
+  babybuddy_log_solid:
+    url: "http://YOUR_HA_IP:8000/api/feedings/"
+    method: POST
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {"child": 1,
+       "start": "{{ today_at(states('input_datetime.baby_log_time')).isoformat() }}",
+       "end": "{{ today_at(states('input_datetime.baby_log_time')).isoformat() }}",
+       "type": "solid food",
+       "method": "{{ states('input_select.baby_solid_method') | lower }}",
+       "notes": "{{ states('input_text.baby_solid_food_notes') }}"}
+
+  # Log sleep - with separate start/end times, nap flag, and notes
+  babybuddy_log_sleep:
+    url: "http://YOUR_HA_IP:8000/api/sleep/"
+    method: POST
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {"child": 1,
+       "start": "{{ today_at(states('input_datetime.baby_sleep_start_time')).isoformat() }}",
+       "end": "{{ today_at(states('input_datetime.baby_sleep_end_time')).isoformat() }}",
+       "nap": {{ is_state('input_boolean.baby_sleep_is_nap', 'on') | lower }},
+       "notes": "{{ states('input_text.baby_sleep_notes') }}"}
+
+  # Update existing solid food - uses feeding_id parameter
+  babybuddy_update_solid:
+    url: "http://YOUR_HA_IP:8000/api/feedings/{{ feeding_id }}/"
+    method: PATCH
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {% set notes = states('input_text.baby_edit_solid_notes') %}
+      {% set method = states('input_select.baby_edit_solid_method') %}
+      {% set parts = [] %}
+      {% if notes and notes | length > 0 %}
+        {% set parts = parts + ['"notes": "' ~ notes ~ '"'] %}
+      {% endif %}
+      {% if method and method | length > 0 %}
+        {% set parts = parts + ['"method": "' ~ (method | lower) ~ '"'] %}
+      {% endif %}
+      { {{ parts | join(', ') }} }
+
+  # Update existing diaper - uses diaper_id parameter
+  babybuddy_update_diaper:
+    url: "http://YOUR_HA_IP:8000/api/changes/{{ diaper_id }}/"
+    method: PATCH
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {% set wet = is_state('input_boolean.baby_edit_diaper_wet', 'on') %}
+      {% set solid = is_state('input_boolean.baby_edit_diaper_solid', 'on') %}
+      {% set notes = states('input_text.baby_edit_diaper_notes') %}
+      {"wet": {{ wet | lower }}, "solid": {{ solid | lower }}{% if notes and notes | length > 0 %}, "notes": "{{ notes }}"{% endif %}}
+
+  # Update existing sleep - uses sleep_id parameter
+  babybuddy_update_sleep:
+    url: "http://YOUR_HA_IP:8000/api/sleep/{{ sleep_id }}/"
+    method: PATCH
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {% set notes = states('input_text.baby_edit_sleep_notes') %}
+      {% if notes and notes | length > 0 %}{"notes": "{{ notes }}"}{% else %}{}{% endif %}
+
+  # Log weight measurement - date from input_datetime, weight converted to grams
+  babybuddy_log_weight:
+    url: "http://YOUR_HA_IP:8000/api/weight/"
+    method: POST
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {"child": 1,
+       "weight": {{ states('sensor.baby_growth_weight_grams') | float(0) }},
+       "date": "{{ states('input_datetime.baby_growth_date') }}",
+       "notes": "{{ states('input_text.baby_growth_notes') }}"}
+
+  # Log height measurement - date from input_datetime, height in cm
+  babybuddy_log_height:
+    url: "http://YOUR_HA_IP:8000/api/height/"
+    method: POST
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {"child": 1,
+       "height": {{ states('sensor.baby_growth_height_cm') | float(0) }},
+       "date": "{{ states('input_datetime.baby_growth_date') }}",
+       "notes": "{{ states('input_text.baby_growth_notes') }}"}
+
+  # Log head circumference - date from input_datetime, head in cm
+  babybuddy_log_head:
+    url: "http://YOUR_HA_IP:8000/api/head-circumference/"
+    method: POST
+    headers:
+      Authorization: !secret babybuddy_api_token
+      Content-Type: "application/json"
+    payload: >
+      {"child": 1,
+       "head_circumference": {{ states('sensor.baby_growth_head_cm') | float(0) }},
+       "date": "{{ states('input_datetime.baby_growth_date') }}",
+       "notes": "{{ states('input_text.baby_growth_notes') }}"}
+
+# ==============================================================================
+# SCRIPTS
+# ==============================================================================
+
+script:
+  # Log all filled growth measurements in one action
+  babybuddy_log_growth:
+    alias: "Log Growth Measurements"
+    description: "Logs weight, height, and head circumference if values are entered"
+    sequence:
+      - if:
+          - condition: template
+            value_template: "{{ states('input_text.baby_growth_weight') | float(0) > 0 }}"
+        then:
+          - service: rest_command.babybuddy_log_weight
+      - if:
+          - condition: template
+            value_template: "{{ states('input_text.baby_growth_height') | float(0) > 0 }}"
+        then:
+          - service: rest_command.babybuddy_log_height
+      - if:
+          - condition: template
+            value_template: "{{ states('input_text.baby_growth_head') | float(0) > 0 }}"
+        then:
+          - service: rest_command.babybuddy_log_head
+      # Clear the input fields after logging
+      - service: input_text.set_value
+        target:
+          entity_id:
+            - input_text.baby_growth_weight
+            - input_text.baby_growth_height
+            - input_text.baby_growth_head
+            - input_text.baby_growth_notes
+        data:
+          value: ""
+
+# ==============================================================================
+# INPUT HELPERS
+# ==============================================================================
+
+# Time pickers for quick-log forms
+input_datetime:
+  baby_log_time:
+    name: Log Time
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+
+  baby_sleep_start_time:
+    name: Sleep Start Time
+    has_date: false
+    has_time: true
+    icon: mdi:clock-start
+
+  baby_sleep_end_time:
+    name: Sleep End Time
+    has_date: false
+    has_time: true
+    icon: mdi:clock-end
+
+  baby_growth_date:
+    name: Measurement Date
+    has_date: true
+    has_time: false
+    icon: mdi:calendar
+
+# Text inputs for amounts and notes
+input_text:
+  baby_feeding_amount_input:
+    name: Feeding Amount
+    initial: ""
+    max: 10
+    pattern: "[0-9]*\\.?[0-9]*"
+    icon: mdi:baby-bottle
+
+  baby_edit_feeding_amount_input:
+    name: Edit Feeding Amount
+    initial: ""
+    max: 10
+    pattern: "[0-9]*\\.?[0-9]*"
+    icon: mdi:baby-bottle
+
+  baby_edit_feeding_notes:
+    name: Edit Feeding Notes
+    initial: ""
+    max: 255
+    icon: mdi:note-text
+
+  baby_feeding_notes:
+    name: Feeding Notes
+    initial: ""
+    max: 255
+    icon: mdi:note-text
+
+  baby_diaper_notes:
+    name: Diaper Notes
+    initial: ""
+    max: 255
+    icon: mdi:note-text
+
+  baby_sleep_notes:
+    name: Sleep Notes
+    initial: ""
+    max: 255
+    icon: mdi:note-text
+
+  baby_solid_food_notes:
+    name: Food Name/Notes
+    initial: ""
+    max: 255
+    icon: mdi:food-apple
+
+  # Growth measurement inputs (user enters in their display unit)
+  baby_growth_weight:
+    name: Weight
+    initial: ""
+    max: 10
+    pattern: "[0-9]*\\.?[0-9]*"
+    icon: mdi:scale
+
+  baby_growth_height:
+    name: Height
+    initial: ""
+    max: 10
+    pattern: "[0-9]*\\.?[0-9]*"
+    icon: mdi:human-male-height
+
+  baby_growth_head:
+    name: Head Circumference
+    initial: ""
+    max: 10
+    pattern: "[0-9]*\\.?[0-9]*"
+    icon: mdi:head
+
+  baby_growth_notes:
+    name: Growth Notes
+    initial: ""
+    max: 255
+    icon: mdi:note-text
+
+  # Edit solid food inputs
+  baby_edit_solid_notes:
+    name: Edit Solid Notes
+    initial: ""
+    max: 255
+    icon: mdi:food-apple
+
+  # Edit diaper inputs
+  baby_edit_diaper_notes:
+    name: Edit Diaper Notes
+    initial: ""
+    max: 255
+    icon: mdi:note-text
+
+  # Edit sleep inputs
+  baby_edit_sleep_notes:
+    name: Edit Sleep Notes
+    initial: ""
+    max: 255
+    icon: mdi:note-text
+
+  # Sync status tracking
+  happiest_baby_last_status:
+    name: Happiest Baby Last Sync Status
+    initial: "Not synced"
+    max: 100
+    icon: mdi:sleep
+
+  lillio_last_status:
+    name: Lillio Last Sync Status
+    initial: "Not synced"
+    max: 100
+    icon: mdi:school
+
+# Dropdowns for feeding type and method
+input_select:
+  baby_feeding_type:
+    name: Feeding Type
+    options:
+      - "Formula"
+      - "Breast Milk"
+      - "Solid Food"
+    initial: "Formula"
+    icon: mdi:baby-bottle
+
+  baby_feeding_method:
+    name: Feeding Method
+    options:
+      - "Bottle"
+      - "Left Breast"
+      - "Right Breast"
+      - "Both Breasts"
+    initial: "Bottle"
+    icon: mdi:baby-bottle-outline
+
+  baby_solid_method:
+    name: Solid Food Method
+    options:
+      - "Parent Fed"
+      - "Self Fed"
+    initial: "Parent Fed"
+    icon: mdi:spoon
+
+  # Edit solid food method dropdown
+  baby_edit_solid_method:
+    name: Edit Solid Method
+    options:
+      - "Parent Fed"
+      - "Self Fed"
+    initial: "Parent Fed"
+    icon: mdi:spoon
+
+# Toggles for unit display and nap flag
+input_boolean:
+  baby_display_imperial:
+    name: Display Imperial Units
+    icon: mdi:scale
+
+  baby_sleep_is_nap:
+    name: Is Nap
+    icon: mdi:sleep
+
+  # Edit diaper toggles
+  baby_edit_diaper_wet:
+    name: Edit Diaper Wet
+    icon: mdi:water
+
+  baby_edit_diaper_solid:
+    name: Edit Diaper Solid
+    icon: mdi:circle
+
+  # Popup triggers for resetting date navigation to today
+  # These work with Bubble Card's trigger_entity feature
+  open_diaper_history:
+    name: Open Diaper History Popup
+    icon: mdi:paper-roll
+
+  open_feeding_history:
+    name: Open Feeding History Popup
+    icon: mdi:baby-bottle-outline
+
+  open_sleep_history:
+    name: Open Sleep History Popup
+    icon: mdi:sleep
+
+# ==============================================================================
+# EXTERNAL SYNC - HAPPIEST BABY & LILLIO
+# ==============================================================================
+# Automated syncs from external baby tracking services to Baby Buddy
+# - Happiest Baby: Sleep data from SNOO bassinet (every 3 hours)
+# - Lillio: Daycare reports - naps, feedings, diapers (5/6/7 PM weekdays)
+#
+# Scripts output JSON parsed by command_line sensors for status tracking
+# Manual sync available via shell_command service calls
+
+# ------------------------------------------------------------------------------
+# Shell Commands - Scripts read credentials directly from /config/secrets.yaml
+# ------------------------------------------------------------------------------
+shell_command:
+  # Sync Happiest Baby sleep data (default 1 day lookback)
+  sync_happiest_baby: "python /config/scripts/sync_happiest_baby.py"
+
+  # Sync Happiest Baby with configurable lookback (set via input_number.happiest_baby_backfill_days)
+  sync_happiest_baby_backfill: "python /config/scripts/sync_happiest_baby.py --lookback-days {{ states('input_number.happiest_baby_backfill_days') | int }}"
+
+  # Sync Lillio daily reports
+  sync_lillio: "python /config/scripts/sync_lillio.py"
+
+# ------------------------------------------------------------------------------
+# Note: Sync status tracked via input_text helpers updated by scripts
+# command_line sensors removed - can't pass templated secrets to them
+# ------------------------------------------------------------------------------
+
+input_number:
+  happiest_baby_backfill_days:
+    name: Happiest Baby Backfill Days
+    min: 1
+    max: 90
+    step: 1
+    initial: 7
+    unit_of_measurement: days
+    icon: mdi:calendar-range
+
+  baby_date_offset:
+    name: Baby Date Offset
+    min: -6
+    max: 0
+    step: 1
+    initial: 0
+    mode: box
+    icon: mdi:calendar-range
+
+input_datetime:
+  happiest_baby_last_sync:
+    name: Happiest Baby Last Sync
+    has_date: true
+    has_time: true
+    icon: mdi:clock-check
+
+  lillio_last_sync:
+    name: Lillio Last Sync
+    has_date: true
+    has_time: true
+    icon: mdi:clock-check
+
+# ------------------------------------------------------------------------------
+# Scripts - Popup triggers with date reset
+# These scripts reset date navigation to today before opening popups
+# ------------------------------------------------------------------------------
+script:
+  # Open Diaper History popup, resetting to today first
+  baby_open_diaper_history:
+    alias: "Open Diaper History (Reset to Today)"
+    description: "Reset date offset to 0 (today) then trigger Diaper History popup"
+    sequence:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.baby_date_offset
+        data:
+          value: 0
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.open_diaper_history
+      - delay:
+          milliseconds: 500
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.open_diaper_history
+
+  # Open Feeding History popup, resetting to today first
+  baby_open_feeding_history:
+    alias: "Open Feeding History (Reset to Today)"
+    description: "Reset date offset to 0 (today) then trigger Feeding History popup"
+    sequence:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.baby_date_offset
+        data:
+          value: 0
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.open_feeding_history
+      - delay:
+          milliseconds: 500
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.open_feeding_history
+
+  # Open Sleep History popup, resetting to today first
+  baby_open_sleep_history:
+    alias: "Open Sleep History (Reset to Today)"
+    description: "Reset date offset to 0 (today) then trigger Sleep History popup"
+    sequence:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.baby_date_offset
+        data:
+          value: 0
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.open_sleep_history
+      - delay:
+          milliseconds: 500
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.open_sleep_history
+
+# ------------------------------------------------------------------------------
+# Scripts - Sync with status update
+# Scripts read credentials directly from /config/secrets.yaml
+# ------------------------------------------------------------------------------
+
+  # Manual Happiest Baby sync with status update
+  sync_happiest_baby_manual:
+    alias: "Sync Happiest Baby"
+    description: "Manually trigger Happiest Baby sync and update status"
+    sequence:
+      - service: shell_command.sync_happiest_baby
+      - delay:
+          seconds: 5
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.happiest_baby_last_sync
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.happiest_baby_last_status
+        data:
+          value: "Synced"
+
+  # Happiest Baby backfill - configurable days via input_number
+  sync_happiest_baby_backfill:
+    alias: "Sync Happiest Baby (Backfill)"
+    description: "Backfill sync - set days via input_number.happiest_baby_backfill_days"
+    sequence:
+      - service: shell_command.sync_happiest_baby_backfill
+      - delay:
+          seconds: 10
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.happiest_baby_last_sync
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.happiest_baby_last_status
+        data:
+          value: "Backfill complete"
+
+  # Manual Lillio sync with status update
+  sync_lillio_manual:
+    alias: "Sync Lillio"
+    description: "Manually trigger Lillio sync and update status"
+    sequence:
+      - service: shell_command.sync_lillio
+      - delay:
+          seconds: 5
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.lillio_last_sync
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.lillio_last_status
+        data:
+          value: "Synced"
+
+# ------------------------------------------------------------------------------
+# Automations - Scheduled syncs
+# ------------------------------------------------------------------------------
+automation:
+  # Happiest Baby - Every 3 hours, 24/7
+  - id: sync_happiest_baby_scheduled
+    alias: "Sync Happiest Baby (Scheduled)"
+    description: "Sync sleep data from Happiest Baby every 3 hours"
+    trigger:
+      - platform: time_pattern
+        hours: "/3"  # Every 3 hours: 0, 3, 6, 9, 12, 15, 18, 21
+    action:
+      - service: script.sync_happiest_baby_manual
+
+  # Lillio - 5 PM, 6 PM, 7 PM weekdays only
+  - id: sync_lillio_scheduled
+    alias: "Sync Lillio (Scheduled)"
+    description: "Sync daycare reports at 5, 6, 7 PM on weekdays"
+    trigger:
+      - platform: time
+        at: "17:00:00"
+      - platform: time
+        at: "18:00:00"
+      - platform: time
+        at: "19:00:00"
+    condition:
+      - condition: time
+        weekday:
+          - mon
+          - tue
+          - wed
+          - thu
+          - fri
+    action:
+      - service: script.sync_lillio_manual
+
+  # Sync failure notification
+  - id: sync_failure_notification
+    alias: "Baby Sync Failure Alert"
+    description: "Notify on sync failures"
+    trigger:
+      - platform: state
+        entity_id: sensor.happiest_baby_sync
+        to: "Error"
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "Baby Sync Failed"
+          message: >
+            Happiest Baby sync failed: {{ state_attr('sensor.happiest_baby_sync', 'error') }}
+          notification_id: baby_sync_error
