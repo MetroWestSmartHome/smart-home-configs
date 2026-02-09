@@ -12,6 +12,7 @@ Open source Home Assistant, ESPHome, and smart home configurations from [metrowe
 | `home-assistant/energy-monitoring/` | rtlamr2mqtt meter reading config | [Monitoring Energy Usage](https://metrowestsmarthome.com/home-assistant-energy-monitoring/) |
 | `home-assistant/remote-dashboard/` | Universal remote control dashboard | [Universal Remote Dashboard](https://metrowestsmarthome.com/home-assistant-remote-dashboard/) |
 | `home-assistant/rivian-efficiency/` | Rivian R1T/R1S true mi/kWh tracking | [Rivian Home Assistant Dashboard](https://metrowestsmarthome.com/rivian-home-assistant/) |
+| `home-assistant/baby-tracking/` | Baby Buddy integration with REST sensors, edit popups, date navigation | [Happiest Baby Home Assistant](https://metrowestsmarthome.com/happiest-baby-home-assistant/) |
 
 ## Getting Started
 
