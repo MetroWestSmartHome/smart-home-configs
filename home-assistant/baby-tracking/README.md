@@ -9,6 +9,7 @@ This repository contains the **full working configuration** - more comprehensive
 | File | Description |
 |------|-------------|
 | `baby_buddy.yaml` | Complete HA package (~1800 lines): REST sensors, template sensors, REST commands, input helpers, scripts, automations |
+| `baby_dashboard.yaml` | Full Lovelace dashboard view (~1800 lines): status cards, quick-log buttons, history popups with date navigation, growth charts |
 | `import_to_babybuddy.py` | One-time import script for Happiest Baby data migration |
 
 ### Configuration Highlights
@@ -53,6 +54,22 @@ When using automated sync scripts, entries are tagged in the notes field to iden
    babybuddy_api_token: "Token YOUR_API_KEY_HERE"
    ```
 5. Restart Home Assistant
+
+### Dashboard Setup
+
+The dashboard requires these HACS custom cards:
+- [Bubble Card](https://github.com/Clooos/Bubble-Card) - Popup cards
+- [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) - Template cards
+- [ApexCharts Card](https://github.com/RomRider/apexcharts-card) - Charts
+- [Layout Card](https://github.com/thomasloven/lovelace-layout-card) - Grid layouts
+- [Stack-in-Card](https://github.com/custom-cards/stack-in-card) - Card grouping
+
+To add the dashboard view:
+1. Copy contents of `baby_dashboard.yaml`
+2. Add to your dashboard YAML under `views:`
+3. Replace placeholders:
+   - `Your Baby` / `your_baby` → Your baby's name
+   - `YOUR_HA_IP` → Your Home Assistant IP/hostname
 
 ## Importing Happiest Baby Data
 
