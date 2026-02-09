@@ -1,0 +1,1801 @@
+﻿# Baby Buddy Dashboard View for Home Assistant
+# Full tutorial: https://metrowestsmarthome.com/happiest-baby-home-assistant/
+#
+# This is a single Lovelace view to add to your dashboard.
+# Add this view to your existing dashboard YAML or use as a standalone dashboard.
+#
+# Prerequisites:
+# - baby_buddy.yaml package installed (REST sensors, template sensors, scripts, automations)
+# - HACS custom cards: Bubble Card, Mushroom Cards, ApexCharts Card, Layout Card, Stack-in-Card
+#
+# Replace these placeholders:
+# - Your Baby / your_baby -> Your baby's name (display / entity IDs)
+# - YOUR_HA_IP -> Your Home Assistant IP or hostname (for Baby Buddy links)
+#
+# Source tags in notes field identify data origin:
+# - [HB] = Synced from Happiest Baby
+# - [LI] = Synced from Lillio (daycare)
+# - No tag = Logged manually
+  # ==========================================================================
+  # VIEW 8: BABY (YOUR_BABY Tracking)
+  # ==========================================================================
+  - title: Baby
+    path: baby
+    icon: mdi:baby-face-outline
+    theme: Catppuccin Macchiato Rounded
+    layout:
+      max_cols: 3
+    cards:
+      # --------------------------------------------------------------------------
+      # BABY STATUS CARD
+      # --------------------------------------------------------------------------
+      - type: custom:stack-in-card
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Your Baby
+            secondary: "{{ states('sensor.your_baby_age') }} months old"
+            icon: mdi:baby-face
+            icon_color: blue
+            badge_icon: mdi:menu
+            tap_action:
+              action: navigate
+              navigation_path: '#baby-details'
+          # Row 1: Last Bottle, Last Solid
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+                    {{ states('sensor.your_baby_last_bottle_oz') }} oz
+                  {% else %}
+                    {{ states('sensor.your_baby_last_bottle_ml') }} ml
+                  {% endif %}
+                secondary: >
+                  {% set time = state_attr('sensor.your_baby_last_bottle_ml', 'time') %}
+                  {% if time %}
+                    {% set hours = ((now() - (time | as_datetime)).total_seconds() / 3600) | round(1) %}
+                    {{ hours }}h ago
+                  {% endif %}
+                icon: mdi:baby-bottle
+                icon_color: blue
+                layout: vertical
+                tap_action:
+                  action: navigate
+                  navigation_path: '#edit-last-bottle'
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set food_raw = state_attr('sensor.your_baby_last_solid', 'food') | default('None') %}
+                  {{ food_raw | regex_replace('^\[(HB|LI)\]\s*', '') | truncate(10) }}
+                secondary: >
+                  {% set time = state_attr('sensor.your_baby_last_solid', 'time') %}
+                  {% if time %}
+                    {% set hours = ((now() - (time | as_datetime)).total_seconds() / 3600) | round(1) %}
+                    {{ hours }}h ago
+                  {% else %}
+                    --
+                  {% endif %}
+                icon: mdi:food-apple
+                icon_color: green
+                layout: vertical
+                tap_action:
+                  action: navigate
+                  navigation_path: '#edit-last-solid'
+          # Row 2: Last Diaper, Last Sleep
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: "{{ states('sensor.your_baby_last_diaper_type') }}"
+                secondary: >
+                  {% set time = state_attr('sensor.your_baby_last_diaper_type', 'time') %}
+                  {% if time %}
+                    {% set hours = ((now() - (time | as_datetime)).total_seconds() / 3600) | round(1) %}
+                    {{ hours }}h ago
+                  {% endif %}
+                icon: mdi:paper-roll
+                icon_color: amber
+                layout: vertical
+                tap_action:
+                  action: navigate
+                  navigation_path: '#edit-last-diaper'
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set mins = states('sensor.your_baby_last_sleep') | int(0) %}
+                  {% set hours = (mins // 60) | int %}
+                  {% set remaining = mins % 60 %}
+                  {% if hours > 0 %}{{ hours }}h {{ remaining }}m{% else %}{{ remaining }}m{% endif %}
+                secondary: >
+                  {% set end_time = state_attr('sensor.your_baby_last_sleep', 'end') %}
+                  {% if end_time %}
+                    {% set hours = ((now() - (end_time | as_datetime)).total_seconds() / 3600) | round(1) %}
+                    {{ hours }}h ago
+                  {% endif %}
+                icon: mdi:sleep
+                icon_color: purple
+                layout: vertical
+                tap_action:
+                  action: navigate
+                  navigation_path: '#edit-last-sleep'
+
+      # --------------------------------------------------------------------------
+      # QUICK LOG BUTTONS (open popup forms)
+      # --------------------------------------------------------------------------
+      - type: custom:stack-in-card
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Quick Log
+            icon: mdi:plus-circle
+            icon_color: green
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: Feeding
+                icon: mdi:baby-bottle
+                icon_color: blue
+                tap_action:
+                  action: navigate
+                  navigation_path: '#feeding-log'
+                layout: vertical
+              - type: custom:mushroom-template-card
+                primary: Diaper
+                icon: mdi:emoticon-poop
+                icon_color: amber
+                tap_action:
+                  action: navigate
+                  navigation_path: '#diaper-log'
+                layout: vertical
+              - type: custom:mushroom-template-card
+                primary: Sleep
+                icon: mdi:sleep
+                icon_color: purple
+                tap_action:
+                  action: navigate
+                  navigation_path: '#sleep-log'
+                layout: vertical
+              - type: custom:mushroom-template-card
+                primary: Growth
+                icon: mdi:chart-line
+                icon_color: green
+                tap_action:
+                  action: navigate
+                  navigation_path: '#growth-log'
+                layout: vertical
+
+      # --------------------------------------------------------------------------
+      # TODAY'S FEEDINGS - Summary buttons (tap for full list with date navigation)
+      # --------------------------------------------------------------------------
+      - type: custom:stack-in-card
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Feedings
+            secondary: "{{ states('sensor.your_baby_bottles_today_list') }} bottles, {{ states('sensor.your_baby_solids_today_list') }} solids"
+            icon: mdi:baby-bottle-outline
+            icon_color: light-blue
+            badge_icon: mdi:menu
+            tap_action:
+              action: call-service
+              service: script.baby_open_feeding_history
+          # Bottles - Total and Last buttons
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: >
+                  Total {{ states('sensor.your_baby_bottles_today_list') }}
+                secondary: >
+                  {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+                    {{ states('sensor.your_baby_feedings_today_total_oz') }} oz
+                  {% else %}
+                    {{ states('sensor.your_baby_feedings_today_total_ml') }} ml
+                  {% endif %}
+                icon: mdi:baby-bottle
+                icon_color: blue
+                layout: vertical
+                tap_action:
+                  action: call-service
+                  service: script.baby_open_feeding_history
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set time = state_attr('sensor.your_baby_last_bottle_ml', 'time') %}
+                  {% if time %}
+                    {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+                      Last {{ states('sensor.your_baby_last_bottle_oz') }} oz
+                    {% else %}
+                      Last {{ states('sensor.your_baby_last_bottle_ml') }} ml
+                    {% endif %}
+                  {% else %}
+                    No bottles
+                  {% endif %}
+                secondary: >
+                  {% set time = state_attr('sensor.your_baby_last_bottle_ml', 'time') %}
+                  {% if time %}
+                    {% set item_date = (time | as_datetime | as_local).date() %}
+                    {% set today = now().date() %}
+                    {% set days_ago = (today - item_date).days %}
+                    {% if days_ago == 0 %}
+                      @ {{ time | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}
+                    {% elif days_ago == 1 %}
+                      Yesterday {{ time | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}
+                    {% else %}
+                      {{ days_ago }} days ago
+                    {% endif %}
+                  {% endif %}
+                icon: mdi:baby-bottle-outline
+                icon_color: light-blue
+                layout: vertical
+                tap_action:
+                  action: call-service
+                  service: script.baby_open_feeding_history
+          # Solids - Total and Last buttons
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: "Total {{ states('sensor.your_baby_solids_today_list') }}"
+                secondary: solids
+                icon: mdi:food-apple
+                icon_color: green
+                layout: vertical
+                tap_action:
+                  action: call-service
+                  service: script.baby_open_feeding_history
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set time = state_attr('sensor.your_baby_last_solid', 'time') %}
+                  {% if time %}
+                    {% set food_raw = state_attr('sensor.your_baby_last_solid', 'food') | default('') %}
+                    {% set food = food_raw | regex_replace('^\[(HB|LI)\]\s*', '') | truncate(20) %}
+                    Last: {{ food }}
+                  {% else %}
+                    No solids
+                  {% endif %}
+                secondary: >
+                  {% set time = state_attr('sensor.your_baby_last_solid', 'time') %}
+                  {% if time %}
+                    {% set item_date = (time | as_datetime | as_local).date() %}
+                    {% set today = now().date() %}
+                    {% set days_ago = (today - item_date).days %}
+                    {% if days_ago == 0 %}
+                      @ {{ time | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}
+                    {% elif days_ago == 1 %}
+                      Yesterday
+                    {% else %}
+                      {{ days_ago }} days ago
+                    {% endif %}
+                  {% endif %}
+                icon: mdi:food-apple-outline
+                icon_color: light-green
+                layout: vertical
+                tap_action:
+                  action: call-service
+                  service: script.baby_open_feeding_history
+
+      # --------------------------------------------------------------------------
+      # SLEEP TRACKING - Summary buttons (tap for full list with date navigation)
+      # --------------------------------------------------------------------------
+      - type: custom:stack-in-card
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Sleep
+            secondary: "{{ states('sensor.your_baby_sleep_today_count') }} sessions ({{ states('sensor.your_baby_sleep_today_total') }} hr), {{ states('sensor.your_baby_naps_today_count') }} naps"
+            icon: mdi:sleep
+            icon_color: purple
+            badge_icon: mdi:menu
+            tap_action:
+              action: call-service
+              service: script.baby_open_sleep_history
+          # Sleep - Total and Last buttons
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: "Total {{ states('sensor.your_baby_sleep_today_count') }}"
+                secondary: "{{ states('sensor.your_baby_sleep_today_total') }} hr, {{ states('sensor.your_baby_naps_today_count') }} naps"
+                icon: mdi:sleep
+                icon_color: purple
+                layout: vertical
+                tap_action:
+                  action: call-service
+                  service: script.baby_open_sleep_history
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set end_time = state_attr('sensor.your_baby_last_sleep', 'end') %}
+                  {% if end_time %}
+                    {% set mins = states('sensor.your_baby_last_sleep') | int(0) %}
+                    {% set hours = (mins // 60) | int %}
+                    {% set remaining_mins = mins % 60 %}
+                    {% if hours > 0 %}
+                      Last {{ hours }}h {{ remaining_mins }}m
+                    {% else %}
+                      Last {{ remaining_mins }}m
+                    {% endif %}
+                  {% else %}
+                    No sleep
+                  {% endif %}
+                secondary: >
+                  {% set end_time = state_attr('sensor.your_baby_last_sleep', 'end') %}
+                  {% if end_time %}
+                    {% set item_date = (end_time | as_datetime | as_local).date() %}
+                    {% set today = now().date() %}
+                    {% set days_ago = (today - item_date).days %}
+                    {% set nap = state_attr('sensor.your_baby_last_sleep', 'nap') %}
+                    {% set nap_text = ' (nap)' if nap == true else '' %}
+                    {% if days_ago == 0 %}
+                      Ended {{ end_time | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}{{ nap_text }}
+                    {% elif days_ago == 1 %}
+                      Yesterday{{ nap_text }}
+                    {% else %}
+                      {{ days_ago }} days ago{{ nap_text }}
+                    {% endif %}
+                  {% endif %}
+                icon: mdi:bed
+                icon_color: deep-purple
+                layout: vertical
+                tap_action:
+                  action: call-service
+                  service: script.baby_open_sleep_history
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.your_baby_snoo_state
+                state_not: unavailable
+            card:
+              type: tile
+              entity: sensor.your_baby_snoo_state
+              name: Snoo Status
+
+      # --------------------------------------------------------------------------
+      # DIAPER TRACKING - Summary buttons (tap for full list with date navigation)
+      # --------------------------------------------------------------------------
+      - type: custom:stack-in-card
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Diapers
+            secondary: "{{ states('sensor.your_baby_diapers_today_count') }} today"
+            icon: mdi:paper-roll
+            icon_color: amber
+            badge_icon: mdi:menu
+            tap_action:
+              action: call-service
+              service: script.baby_open_diaper_history
+          # Diaper - Total and Last Dirty buttons
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: "Total {{ states('sensor.your_baby_diapers_today_count') }}"
+                secondary: "diapers today"
+                icon: mdi:paper-roll
+                icon_color: amber
+                layout: vertical
+                tap_action:
+                  action: call-service
+                  service: script.baby_open_diaper_history
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set hours = states('sensor.your_baby_last_dirty_diaper') | float(0) %}
+                  {% if hours > 0 %}
+                    Last ðŸ’© {{ hours }}h ago
+                  {% else %}
+                    No dirty today
+                  {% endif %}
+                secondary: >
+                  {% set time = state_attr('sensor.your_baby_last_dirty_diaper', 'time') %}
+                  {% if time %}
+                    {% set item_date = (time | as_datetime | as_local).date() %}
+                    {% set today = now().date() %}
+                    {% set days_ago = (today - item_date).days %}
+                    {% if days_ago == 0 %}
+                      {{ time | as_datetime | as_local | as_timestamp | timestamp_custom('%I:%M %p') }}
+                    {% elif days_ago == 1 %}
+                      Yesterday
+                    {% else %}
+                      {{ days_ago }} days ago
+                    {% endif %}
+                  {% endif %}
+                icon: mdi:emoticon-poop
+                icon_color: brown
+                layout: vertical
+                tap_action:
+                  action: call-service
+                  service: script.baby_open_diaper_history
+
+      # --------------------------------------------------------------------------
+      # GROWTH TRACKING
+      # --------------------------------------------------------------------------
+      - type: custom:stack-in-card
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Growth
+            icon: mdi:chart-line
+            icon_color: teal
+            badge_icon: mdi:menu
+            tap_action:
+              action: navigate
+              navigation_path: '#growth-details'
+          - type: horizontal-stack
+            cards:
+              # Weight with date
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+                    {{ states('sensor.your_baby_last_weight_lb') }} lb
+                  {% else %}
+                    {{ states('sensor.your_baby_last_weight_kg') }} kg
+                  {% endif %}
+                secondary: "{{ state_attr('sensor.your_baby_last_weight', 'date') }}"
+                icon: mdi:scale-bathroom
+                icon_color: green
+                layout: vertical
+                tap_action:
+                  action: navigate
+                  navigation_path: '#growth-details'
+              # Height with date
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+                    {{ states('sensor.your_baby_last_height_in') }} in
+                  {% else %}
+                    {{ states('sensor.your_baby_last_height_cm') }} cm
+                  {% endif %}
+                secondary: "{{ state_attr('sensor.your_baby_last_height', 'date') }}"
+                icon: mdi:human-male-height
+                icon_color: blue
+                layout: vertical
+                tap_action:
+                  action: navigate
+                  navigation_path: '#growth-details'
+              # Head circumference with date
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+                    {{ states('sensor.your_baby_last_head_in') }} in
+                  {% else %}
+                    {{ states('sensor.your_baby_last_head_cm') }} cm
+                  {% endif %}
+                secondary: "{{ state_attr('sensor.your_baby_last_head_circumference', 'date') }}"
+                icon: mdi:head
+                icon_color: amber
+                layout: vertical
+                tap_action:
+                  action: navigate
+                  navigation_path: '#growth-details'
+
+      # --------------------------------------------------------------------------
+      # SETTINGS
+      # --------------------------------------------------------------------------
+      - type: custom:stack-in-card
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Settings
+            icon: mdi:cog
+            icon_color: grey
+          - type: tile
+            entity: input_boolean.baby_display_imperial
+            name: Imperial Units (oz/lb)
+          - type: custom:mushroom-template-card
+            primary: Import/Sync
+            icon: mdi:cloud-sync
+            icon_color: green
+            tap_action:
+              action: navigate
+              navigation_path: '#baby-settings'
+
+      # --------------------------------------------------------------------------
+      # POPUPS
+      # --------------------------------------------------------------------------
+      # Baby Details Popup
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#baby-details'
+            name: Baby Details
+            icon: mdi:baby-face
+            width_desktop: 600px
+          - type: entities
+            title: Last Bottle
+            entities:
+              - type: conditional
+                conditions:
+                  - entity: input_boolean.baby_display_imperial
+                    state: "off"
+                row:
+                  entity: sensor.your_baby_last_bottle_ml
+                  name: Amount
+              - type: conditional
+                conditions:
+                  - entity: input_boolean.baby_display_imperial
+                    state: "on"
+                row:
+                  entity: sensor.your_baby_last_bottle_oz
+                  name: Amount
+              - type: attribute
+                entity: sensor.your_baby_last_bottle_ml
+                attribute: type
+                name: Type
+              - type: attribute
+                entity: sensor.your_baby_last_bottle_ml
+                attribute: method
+                name: Method
+              - type: attribute
+                entity: sensor.your_baby_last_bottle_ml
+                attribute: time
+                name: Time
+          - type: entities
+            title: Last Solid Food
+            entities:
+              - entity: sensor.your_baby_last_solid
+                name: Food
+              - type: attribute
+                entity: sensor.your_baby_last_solid
+                attribute: method
+                name: Method
+              - type: attribute
+                entity: sensor.your_baby_last_solid
+                attribute: time
+                name: Time
+          - type: entities
+            title: Last Diaper
+            entities:
+              - entity: sensor.your_baby_last_change
+                name: Time
+              - entity: sensor.your_baby_last_diaper_type
+                name: Type
+              - type: attribute
+                entity: sensor.your_baby_last_diaper_type
+                attribute: notes
+                name: Notes
+          - type: entities
+            title: Last Sleep
+            entities:
+              - entity: sensor.your_baby_last_sleep
+                name: Duration
+              - type: attribute
+                entity: sensor.your_baby_last_sleep
+                attribute: start
+                name: Start
+              - type: attribute
+                entity: sensor.your_baby_last_sleep
+                attribute: end
+                name: End
+              - type: attribute
+                entity: sensor.your_baby_last_sleep
+                attribute: nap
+                name: Nap
+
+      # Edit Last Bottle Popup
+      # Use case: Log bottle amount upfront, then edit if baby doesn't finish or needs more
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#edit-last-bottle'
+            name: Edit Last Bottle
+            icon: mdi:baby-bottle-outline
+            width_desktop: 500px
+          - type: entities
+            title: Current Values
+            entities:
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "off"
+                row:
+                  entity: sensor.your_baby_last_feeding_ml
+                  name: Amount
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "on"
+                row:
+                  entity: sensor.your_baby_last_feeding_oz
+                  name: Amount
+              - type: attribute
+                entity: sensor.your_baby_last_feeding
+                attribute: start
+                name: Time
+              - type: attribute
+                entity: sensor.your_baby_last_feeding
+                attribute: notes
+                name: Notes
+          - type: custom:mushroom-title-card
+            title: New Amount
+            subtitle: >
+              {% if is_state('input_boolean.baby_display_imperial', 'on') %}Enter in oz{% else %}Enter in ml{% endif %}
+          - type: horizontal-stack
+            cards:
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "off"
+                card:
+                  type: button
+                  name: "150 ml"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_edit_feeding_amount_input
+                      value: "150"
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "off"
+                card:
+                  type: button
+                  name: "180 ml"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_edit_feeding_amount_input
+                      value: "180"
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "off"
+                card:
+                  type: button
+                  name: "210 ml"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_edit_feeding_amount_input
+                      value: "210"
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "off"
+                card:
+                  type: button
+                  name: "240 ml"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_edit_feeding_amount_input
+                      value: "240"
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "on"
+                card:
+                  type: button
+                  name: "5 oz"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_edit_feeding_amount_input
+                      value: "5"
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "on"
+                card:
+                  type: button
+                  name: "6 oz"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_edit_feeding_amount_input
+                      value: "6"
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "on"
+                card:
+                  type: button
+                  name: "7 oz"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_edit_feeding_amount_input
+                      value: "7"
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.baby_display_imperial
+                    state: "on"
+                card:
+                  type: button
+                  name: "8 oz"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_edit_feeding_amount_input
+                      value: "8"
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "on"
+            card:
+              type: entities
+              entities:
+                - entity: input_text.baby_edit_feeding_amount_input
+                  name: Amount (oz)
+                - entity: input_text.baby_edit_feeding_notes
+                  name: Notes
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "off"
+            card:
+              type: entities
+              entities:
+                - entity: input_text.baby_edit_feeding_amount_input
+                  name: Amount (ml)
+                - entity: input_text.baby_edit_feeding_notes
+                  name: Notes
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Update Feeding
+                icon: mdi:content-save
+                tap_action:
+                  action: call-service
+                  service: script.babybuddy_update_last_feeding
+                  confirmation:
+                    text: Update feeding?
+              - type: grid
+                cards: []
+              - type: grid
+                cards: []
+
+      # Edit Last Solid Popup
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#edit-last-solid'
+            name: Edit Last Solid
+            icon: mdi:food-apple
+            width_desktop: 500px
+          - type: entities
+            title: Current Values
+            entities:
+              - entity: sensor.your_baby_last_solid
+                name: Food
+              - type: attribute
+                entity: sensor.your_baby_last_solid
+                attribute: time
+                name: Time
+              - type: attribute
+                entity: sensor.your_baby_last_solid
+                attribute: method
+                name: Method
+          - type: custom:mushroom-title-card
+            title: Edit Solid
+            subtitle: Update method or notes
+          - type: entities
+            entities:
+              - entity: input_select.baby_edit_solid_method
+                name: Method
+              - entity: input_text.baby_edit_solid_notes
+                name: Notes
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Update Solid
+                icon: mdi:content-save
+                tap_action:
+                  action: call-service
+                  service: script.babybuddy_update_last_solid
+                  confirmation:
+                    text: Update solid food entry?
+              - type: grid
+                cards: []
+              - type: grid
+                cards: []
+
+      # Edit Last Diaper Popup
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#edit-last-diaper'
+            name: Edit Last Diaper
+            icon: mdi:paper-roll
+            width_desktop: 500px
+          - type: entities
+            title: Current Values
+            entities:
+              - entity: sensor.your_baby_last_diaper
+                name: Type
+              - type: attribute
+                entity: sensor.your_baby_last_diaper
+                attribute: time
+                name: Time
+              - type: attribute
+                entity: sensor.your_baby_last_diaper
+                attribute: notes
+                name: Notes
+          - type: custom:mushroom-title-card
+            title: Edit Diaper
+            subtitle: Update wet/solid flags or notes
+          - type: entities
+            entities:
+              - entity: input_boolean.baby_edit_diaper_wet
+                name: Wet
+              - entity: input_boolean.baby_edit_diaper_solid
+                name: Solid
+              - entity: input_text.baby_edit_diaper_notes
+                name: Notes
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Update Diaper
+                icon: mdi:content-save
+                tap_action:
+                  action: call-service
+                  service: script.babybuddy_update_last_diaper
+                  confirmation:
+                    text: Update diaper entry?
+              - type: grid
+                cards: []
+              - type: grid
+                cards: []
+
+      # Edit Last Sleep Popup
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#edit-last-sleep'
+            name: Edit Last Sleep
+            icon: mdi:sleep
+            width_desktop: 500px
+          - type: entities
+            title: Current Values
+            entities:
+              - entity: sensor.your_baby_last_sleep
+                name: Duration (min)
+              - type: attribute
+                entity: sensor.your_baby_last_sleep
+                attribute: start
+                name: Start
+              - type: attribute
+                entity: sensor.your_baby_last_sleep
+                attribute: end
+                name: End
+              - type: attribute
+                entity: sensor.your_baby_last_sleep
+                attribute: nap
+                name: Was Nap
+              - type: attribute
+                entity: sensor.your_baby_last_sleep
+                attribute: notes
+                name: Notes
+          - type: custom:mushroom-title-card
+            title: Edit Sleep
+            subtitle: Update notes
+          - type: entities
+            entities:
+              - entity: input_text.baby_edit_sleep_notes
+                name: Notes
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Update Sleep
+                icon: mdi:content-save
+                tap_action:
+                  action: call-service
+                  service: script.babybuddy_update_last_sleep
+                  confirmation:
+                    text: Update sleep entry?
+              - type: grid
+                cards: []
+              - type: grid
+                cards: []
+
+      # Feedings Popup (with date navigation)
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#feeding-history'
+            name: Feedings
+            icon: mdi:baby-bottle-outline
+            width_desktop: 600px
+            trigger_entity: input_boolean.open_feeding_history
+            trigger_state: 'on'
+          # Date navigation header
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                icon: mdi:chevron-left
+                icon_color: >
+                  {% if states('input_number.baby_date_offset') | int > -6 %}blue{% else %}disabled{% endif %}
+                tap_action:
+                  action: call-service
+                  service: input_number.decrement
+                  target:
+                    entity_id: input_number.baby_date_offset
+                layout: vertical
+              - type: custom:mushroom-template-card
+                primary: "{{ states('sensor.baby_selected_date') }}"
+                secondary: >
+                  {% if state_attr('sensor.baby_selected_date', 'is_today') == 'True' %}Today{% endif %}
+                icon: mdi:calendar
+                icon_color: blue
+                layout: vertical
+              - type: custom:mushroom-template-card
+                icon: mdi:chevron-right
+                icon_color: >
+                  {% if states('input_number.baby_date_offset') | int < 0 %}blue{% else %}disabled{% endif %}
+                tap_action:
+                  action: call-service
+                  service: input_number.increment
+                  target:
+                    entity_id: input_number.baby_date_offset
+                layout: vertical
+              - type: custom:mushroom-template-card
+                primary: Today
+                icon: mdi:calendar-today
+                icon_color: green
+                tap_action:
+                  action: call-service
+                  service: input_number.set_value
+                  target:
+                    entity_id: input_number.baby_date_offset
+                  data:
+                    value: 0
+                layout: vertical
+          # Selected day summary
+          - type: custom:mushroom-template-card
+            primary: >
+              {% if is_state('input_boolean.baby_display_imperial', 'on') %}
+                {{ states('sensor.baby_selected_day_bottles') }} bottles ({{ state_attr('sensor.baby_selected_day_bottles', 'total_oz') }} oz)
+              {% else %}
+                {{ states('sensor.baby_selected_day_bottles') }} bottles ({{ state_attr('sensor.baby_selected_day_bottles', 'total_ml') }} ml)
+              {% endif %}
+            secondary: "{{ states('sensor.baby_selected_day_solids') }} solids"
+            icon: mdi:baby-bottle
+            icon_color: blue
+          # Bottles list for selected day
+          - type: markdown
+            title: Bottles
+            content: "{{ state_attr('sensor.baby_selected_day_bottles', 'markdown') }}"
+          # Solids list for selected day
+          - type: markdown
+            title: Solids
+            content: "{{ state_attr('sensor.baby_selected_day_solids', 'markdown') }}"
+          - type: custom:apexcharts-card
+            header:
+              title: 7-Day Daily Totals
+              show: true
+            graph_span: 7d
+            span:
+              end: day
+            apex_config:
+              chart:
+                height: 200
+              plotOptions:
+                bar:
+                  columnWidth: '60%'
+                  borderRadius: 4
+              yaxis:
+                min: 0
+                labels:
+                  formatter: |
+                    EVAL:function(val) { return Math.round(val) + ' ml (' + (val / 29.5735).toFixed(1) + ' oz)'; }
+              xaxis:
+                type: datetime
+                labels:
+                  datetimeFormatter:
+                    day: ddd
+            series:
+              - entity: sensor.your_baby_feedings_7_day_totals
+                type: column
+                name: Daily Total
+                color: '#89b4fa'
+                data_generator: |
+                  const totals = entity.attributes.daily_totals;
+                  if (!totals || totals.length === 0) return [];
+                  return totals.map(([date, amount]) => {
+                    return [new Date(date + 'T12:00:00').getTime(), amount];
+                  });
+                show:
+                  legend_value: false
+          - type: markdown
+            content: >
+              [View full feeding history in Baby Buddy](http://YOUR_HA_IP:8000/feedings/)
+
+      # Growth Details Popup
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#growth-details'
+            name: Growth History
+            icon: mdi:chart-line
+            width_desktop: 600px
+          # Metric measurements
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "off"
+            card:
+              type: entities
+              title: Latest Measurements (Metric)
+              entities:
+                - entity: sensor.your_baby_last_weight_kg
+                  name: Weight
+                - type: attribute
+                  entity: sensor.your_baby_last_weight
+                  attribute: date
+                  name: Weight Date
+                - entity: sensor.your_baby_last_height_cm
+                  name: Height
+                - type: attribute
+                  entity: sensor.your_baby_last_height
+                  attribute: date
+                  name: Height Date
+                - entity: sensor.your_baby_last_head_cm
+                  name: Head Circumference
+                - type: attribute
+                  entity: sensor.your_baby_last_head_circumference
+                  attribute: date
+                  name: Head Date
+          # Imperial measurements
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "on"
+            card:
+              type: entities
+              title: Latest Measurements (Imperial)
+              entities:
+                - entity: sensor.your_baby_last_weight_lb
+                  name: Weight
+                - type: attribute
+                  entity: sensor.your_baby_last_weight
+                  attribute: date
+                  name: Weight Date
+                - entity: sensor.your_baby_last_height_in
+                  name: Height
+                - type: attribute
+                  entity: sensor.your_baby_last_height
+                  attribute: date
+                  name: Height Date
+                - entity: sensor.your_baby_last_head_in
+                  name: Head Circumference
+                - type: attribute
+                  entity: sensor.your_baby_last_head_circumference
+                  attribute: date
+                  name: Head Date
+          # Weight History Chart (from Baby Buddy API data)
+          - type: custom:apexcharts-card
+            header:
+              title: Weight History
+              show: true
+            graph_span: 6mo
+            apex_config:
+              chart:
+                height: 150
+              yaxis:
+                labels:
+                  formatter: |
+                    EVAL:function(val) { return (val/1000).toFixed(1) + ' kg (' + (val/453.592).toFixed(1) + ' lb)'; }
+              xaxis:
+                type: datetime
+            series:
+              - entity: sensor.babybuddy_weight_history
+                type: line
+                name: Weight
+                color: '#a6e3a1'
+                stroke_width: 2
+                data_generator: |
+                  const results = entity.attributes.results;
+                  if (!results || results.length === 0) return [];
+                  return results.map(r => {
+                    return [new Date(r.date).getTime(), r.weight];
+                  }).sort((a, b) => a[0] - b[0]);
+                show:
+                  legend_value: false
+          # Height History Chart (from Baby Buddy API data)
+          - type: custom:apexcharts-card
+            header:
+              title: Height History
+              show: true
+            graph_span: 6mo
+            apex_config:
+              chart:
+                height: 150
+              yaxis:
+                labels:
+                  formatter: |
+                    EVAL:function(val) { return val.toFixed(1) + ' cm (' + (val/2.54).toFixed(1) + ' in)'; }
+              xaxis:
+                type: datetime
+            series:
+              - entity: sensor.babybuddy_height_history
+                type: line
+                name: Height
+                color: '#89b4fa'
+                stroke_width: 2
+                data_generator: |
+                  const results = entity.attributes.results;
+                  if (!results || results.length === 0) return [];
+                  return results.map(r => {
+                    return [new Date(r.date).getTime(), r.height];
+                  }).sort((a, b) => a[0] - b[0]);
+                show:
+                  legend_value: false
+          # Head Circumference History Chart (from Baby Buddy API data)
+          - type: custom:apexcharts-card
+            header:
+              title: Head Circumference History
+              show: true
+            graph_span: 6mo
+            apex_config:
+              chart:
+                height: 150
+              yaxis:
+                labels:
+                  formatter: |
+                    EVAL:function(val) { return val.toFixed(1) + ' cm (' + (val/2.54).toFixed(1) + ' in)'; }
+              xaxis:
+                type: datetime
+            series:
+              - entity: sensor.babybuddy_head_history
+                type: line
+                name: Head
+                color: '#f9e2af'
+                stroke_width: 2
+                data_generator: |
+                  const results = entity.attributes.results;
+                  if (!results || results.length === 0) return [];
+                  return results.map(r => {
+                    return [new Date(r.date).getTime(), r.head_circumference];
+                  }).sort((a, b) => a[0] - b[0]);
+                show:
+                  legend_value: false
+      # --------------------------------------------------------------------------
+      # GROWTH LOG POPUP
+      # --------------------------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#growth-log'
+            name: Log Growth
+            icon: mdi:chart-line
+            width_desktop: 500px
+          - type: entities
+            entities:
+              - entity: input_datetime.baby_growth_date
+                name: Date
+          # Weight input - Imperial
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "on"
+            card:
+              type: entities
+              entities:
+                - entity: input_text.baby_growth_weight
+                  name: Weight (lb)
+                - entity: input_text.baby_growth_height
+                  name: Height (in)
+                - entity: input_text.baby_growth_head
+                  name: Head (in)
+          # Weight input - Metric
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "off"
+            card:
+              type: entities
+              entities:
+                - entity: input_text.baby_growth_weight
+                  name: Weight (kg)
+                - entity: input_text.baby_growth_height
+                  name: Height (cm)
+                - entity: input_text.baby_growth_head
+                  name: Head (cm)
+          - type: entities
+            entities:
+              - entity: input_text.baby_growth_notes
+                name: Notes (optional)
+          # Log button - logs all filled measurements
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Log Measurements
+                icon: mdi:check
+                tap_action:
+                  action: call-service
+                  service: script.babybuddy_log_growth
+              - type: grid
+                cards: []
+              - type: grid
+                cards: []
+
+      # --------------------------------------------------------------------------
+      # FEEDING LOG POPUP
+      # --------------------------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#feeding-log'
+            name: Log Feeding
+            icon: mdi:baby-bottle
+            width_desktop: 500px
+          # Common fields: Time and Type (always visible)
+          - type: entities
+            entities:
+              - entity: input_datetime.baby_log_time
+                name: Time
+              - entity: input_select.baby_feeding_type
+                name: Type
+          # Set Time to Now button (constrained width)
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Set Time to Now
+                icon: mdi:clock-fast
+                tap_action:
+                  action: call-service
+                  service: input_datetime.set_datetime
+                  service_data:
+                    entity_id: input_datetime.baby_log_time
+                    time: "{{ now().strftime('%H:%M:%S') }}"
+              - type: grid
+                cards: []
+              - type: grid
+                cards: []
+          # ---------- BOTTLE/BREAST FIELDS (shown when NOT solid food) ----------
+          # Imperial units
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.baby_feeding_type
+                state_not: "Solid Food"
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "on"
+            card:
+              type: entities
+              entities:
+                - entity: input_text.baby_feeding_amount_input
+                  name: Amount (oz)
+                - entity: input_select.baby_feeding_method
+                  name: Method
+                - entity: input_text.baby_feeding_notes
+                  name: Notes
+          # Metric units
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.baby_feeding_type
+                state_not: "Solid Food"
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "off"
+            card:
+              type: entities
+              entities:
+                - entity: input_text.baby_feeding_amount_input
+                  name: Amount (ml)
+                - entity: input_select.baby_feeding_method
+                  name: Method
+                - entity: input_text.baby_feeding_notes
+                  name: Notes
+          # Quick amount buttons - Imperial (only for bottle/breast)
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.baby_feeding_type
+                state_not: "Solid Food"
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "on"
+            card:
+              type: horizontal-stack
+              cards:
+                - type: button
+                  name: "5 oz"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_feeding_amount_input
+                      value: "5"
+                - type: button
+                  name: "6 oz"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_feeding_amount_input
+                      value: "6"
+                - type: button
+                  name: "7 oz"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_feeding_amount_input
+                      value: "7"
+                - type: button
+                  name: "8 oz"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_feeding_amount_input
+                      value: "8"
+          # Quick amount buttons - Metric (only for bottle/breast)
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.baby_feeding_type
+                state_not: "Solid Food"
+              - condition: state
+                entity: input_boolean.baby_display_imperial
+                state: "off"
+            card:
+              type: horizontal-stack
+              cards:
+                - type: button
+                  name: "150 ml"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_feeding_amount_input
+                      value: "150"
+                - type: button
+                  name: "180 ml"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_feeding_amount_input
+                      value: "180"
+                - type: button
+                  name: "210 ml"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_feeding_amount_input
+                      value: "210"
+                - type: button
+                  name: "240 ml"
+                  tap_action:
+                    action: call-service
+                    service: input_text.set_value
+                    service_data:
+                      entity_id: input_text.baby_feeding_amount_input
+                      value: "240"
+          # Log Bottle/Breast button (constrained width)
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.baby_feeding_type
+                state_not: "Solid Food"
+            card:
+              type: horizontal-stack
+              cards:
+                - type: button
+                  name: Log Feeding
+                  icon: mdi:check
+                  tap_action:
+                    action: call-service
+                    service: rest_command.babybuddy_log_feeding
+                - type: grid
+                  cards: []
+                - type: grid
+                  cards: []
+          # ---------- SOLID FOOD FIELDS (shown when solid food selected) ----------
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.baby_feeding_type
+                state: "Solid Food"
+            card:
+              type: entities
+              entities:
+                - entity: input_text.baby_solid_food_notes
+                  name: Food Name/Notes
+                - entity: input_select.baby_solid_method
+                  name: Method
+          # Log Solid button (constrained width)
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.baby_feeding_type
+                state: "Solid Food"
+            card:
+              type: horizontal-stack
+              cards:
+                - type: button
+                  name: Log Solid
+                  icon: mdi:check
+                  tap_action:
+                    action: call-service
+                    service: rest_command.babybuddy_log_solid
+                - type: grid
+                  cards: []
+                - type: grid
+                  cards: []
+
+      # --------------------------------------------------------------------------
+      # DIAPER LOG POPUP
+      # --------------------------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#diaper-log'
+            name: Log Diaper
+            icon: mdi:emoticon-poop
+            width_desktop: 500px
+          # Inline form fields
+          - type: entities
+            entities:
+              - entity: input_datetime.baby_log_time
+                name: Time
+              - entity: input_text.baby_diaper_notes
+                name: Notes (optional)
+          # Now button for time (constrained width)
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Set Time to Now
+                icon: mdi:clock-fast
+                tap_action:
+                  action: call-service
+                  service: input_datetime.set_datetime
+                  service_data:
+                    entity_id: input_datetime.baby_log_time
+                    time: "{{ now().strftime('%H:%M:%S') }}"
+              - type: grid
+                cards: []
+              - type: grid
+                cards: []
+          # Type buttons (tap to log immediately)
+          - type: custom:mushroom-template-card
+            primary: "Tap type to log:"
+            icon: mdi:hand-pointing-up
+            icon_color: amber
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Wet
+                icon: mdi:water
+                tap_action:
+                  action: call-service
+                  service: rest_command.babybuddy_log_diaper
+                  service_data:
+                    wet: true
+                    solid: false
+              - type: button
+                name: Dirty
+                icon: mdi:emoticon-poop
+                tap_action:
+                  action: call-service
+                  service: rest_command.babybuddy_log_diaper
+                  service_data:
+                    wet: false
+                    solid: true
+              - type: button
+                name: Both
+                icon: mdi:checkbox-multiple-marked
+                tap_action:
+                  action: call-service
+                  service: rest_command.babybuddy_log_diaper
+                  service_data:
+                    wet: true
+                    solid: true
+
+      # --------------------------------------------------------------------------
+      # SLEEP LOG POPUP
+      # --------------------------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#sleep-log'
+            name: Log Sleep
+            icon: mdi:sleep
+            width_desktop: 500px
+          # Inline form fields
+          - type: entities
+            entities:
+              - entity: input_datetime.baby_sleep_start_time
+                name: Start Time
+              - entity: input_datetime.baby_sleep_end_time
+                name: End Time
+              - entity: input_boolean.baby_sleep_is_nap
+                name: Is this a nap?
+              - entity: input_text.baby_sleep_notes
+                name: Notes (optional)
+          # Now buttons for times
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Start = Now
+                icon: mdi:clock-start
+                tap_action:
+                  action: call-service
+                  service: input_datetime.set_datetime
+                  service_data:
+                    entity_id: input_datetime.baby_sleep_start_time
+                    time: "{{ now().strftime('%H:%M:%S') }}"
+              - type: button
+                name: End = Now
+                icon: mdi:clock-end
+                tap_action:
+                  action: call-service
+                  service: input_datetime.set_datetime
+                  service_data:
+                    entity_id: input_datetime.baby_sleep_end_time
+                    time: "{{ now().strftime('%H:%M:%S') }}"
+          # Submit button (constrained width)
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Log Sleep
+                icon: mdi:check
+                tap_action:
+                  action: call-service
+                  service: rest_command.babybuddy_log_sleep
+              - type: grid
+                cards: []
+              - type: grid
+                cards: []
+
+      # --------------------------------------------------------------------------
+      # SLEEP HISTORY POPUP
+      # Sleep Popup (with date navigation)
+      # --------------------------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#sleep-history'
+            name: Sleep
+            icon: mdi:sleep
+            width_desktop: 600px
+            trigger_entity: input_boolean.open_sleep_history
+            trigger_state: 'on'
+          # Date navigation header
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                icon: mdi:chevron-left
+                icon_color: >
+                  {% if states('input_number.baby_date_offset') | int > -6 %}purple{% else %}disabled{% endif %}
+                tap_action:
+                  action: call-service
+                  service: input_number.decrement
+                  target:
+                    entity_id: input_number.baby_date_offset
+                layout: vertical
+              - type: custom:mushroom-template-card
+                primary: "{{ states('sensor.baby_selected_date') }}"
+                secondary: >
+                  {% if state_attr('sensor.baby_selected_date', 'is_today') == 'True' %}Today{% endif %}
+                icon: mdi:calendar
+                icon_color: purple
+                layout: vertical
+              - type: custom:mushroom-template-card
+                icon: mdi:chevron-right
+                icon_color: >
+                  {% if states('input_number.baby_date_offset') | int < 0 %}purple{% else %}disabled{% endif %}
+                tap_action:
+                  action: call-service
+                  service: input_number.increment
+                  target:
+                    entity_id: input_number.baby_date_offset
+                layout: vertical
+              - type: custom:mushroom-template-card
+                primary: Today
+                icon: mdi:calendar-today
+                icon_color: green
+                tap_action:
+                  action: call-service
+                  service: input_number.set_value
+                  target:
+                    entity_id: input_number.baby_date_offset
+                  data:
+                    value: 0
+                layout: vertical
+          # Selected day summary
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.baby_selected_day_sleep') }} sessions ({{ state_attr('sensor.baby_selected_day_sleep', 'total_hours') }} hr)"
+            secondary: "{{ state_attr('sensor.baby_selected_day_sleep', 'nap_count') }} naps"
+            icon: mdi:sleep
+            icon_color: purple
+          # Sleep list for selected day
+          - type: markdown
+            title: Sleep Sessions
+            content: "{{ state_attr('sensor.baby_selected_day_sleep', 'markdown') }}"
+          - type: custom:apexcharts-card
+            header:
+              title: 7-Day Sleep Totals
+              show: true
+            graph_span: 7d
+            span:
+              end: day
+            apex_config:
+              chart:
+                height: 200
+              plotOptions:
+                bar:
+                  columnWidth: '60%'
+                  borderRadius: 4
+              yaxis:
+                min: 0
+                labels:
+                  formatter: |
+                    EVAL:function(val) { return val.toFixed(1) + ' hr'; }
+              xaxis:
+                type: datetime
+                labels:
+                  datetimeFormatter:
+                    day: ddd
+            series:
+              - entity: sensor.your_baby_sleep_7_day_totals
+                type: column
+                name: Daily Sleep
+                color: '#cba6f7'
+                data_generator: |
+                  const totals = entity.attributes.daily_totals;
+                  if (!totals || totals.length === 0) return [];
+                  return totals.map(([date, hours]) => {
+                    return [new Date(date + 'T12:00:00').getTime(), hours];
+                  });
+                show:
+                  legend_value: false
+          - type: markdown
+            content: >
+              [View full sleep history in Baby Buddy](http://YOUR_HA_IP:8000/sleep/)
+
+      # --------------------------------------------------------------------------
+      # DIAPER HISTORY POPUP
+      # Diaper Popup (with date navigation)
+      # --------------------------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#diaper-history'
+            name: Diapers
+            icon: mdi:paper-roll
+            width_desktop: 600px
+            trigger_entity: input_boolean.open_diaper_history
+            trigger_state: 'on'
+          # Date navigation header
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                icon: mdi:chevron-left
+                icon_color: >
+                  {% if states('input_number.baby_date_offset') | int > -6 %}amber{% else %}disabled{% endif %}
+                tap_action:
+                  action: call-service
+                  service: input_number.decrement
+                  target:
+                    entity_id: input_number.baby_date_offset
+                layout: vertical
+              - type: custom:mushroom-template-card
+                primary: "{{ states('sensor.baby_selected_date') }}"
+                secondary: >
+                  {% if state_attr('sensor.baby_selected_date', 'is_today') == 'True' %}Today{% endif %}
+                icon: mdi:calendar
+                icon_color: amber
+                layout: vertical
+              - type: custom:mushroom-template-card
+                icon: mdi:chevron-right
+                icon_color: >
+                  {% if states('input_number.baby_date_offset') | int < 0 %}amber{% else %}disabled{% endif %}
+                tap_action:
+                  action: call-service
+                  service: input_number.increment
+                  target:
+                    entity_id: input_number.baby_date_offset
+                layout: vertical
+              - type: custom:mushroom-template-card
+                primary: Today
+                icon: mdi:calendar-today
+                icon_color: green
+                tap_action:
+                  action: call-service
+                  service: input_number.set_value
+                  target:
+                    entity_id: input_number.baby_date_offset
+                  data:
+                    value: 0
+                layout: vertical
+          # Selected day summary
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.baby_selected_day_diapers') }} diapers"
+            secondary: "{{ state_attr('sensor.baby_selected_day_diapers', 'dirty_count') }} dirty"
+            icon: mdi:paper-roll
+            icon_color: amber
+          # Diaper list for selected day
+          - type: markdown
+            title: Diaper Changes
+            content: "{{ state_attr('sensor.baby_selected_day_diapers', 'markdown') }}"
+          - type: markdown
+            content: >
+              [View full diaper history in Baby Buddy](http://YOUR_HA_IP:8000/changes/)
+
+      # Settings Popup - Sync status and manual triggers
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#baby-settings'
+            name: Baby Tracking Settings
+            icon: mdi:cog
+            width_desktop: 500px
+          # Happiest Baby Section
+          - type: custom:mushroom-template-card
+            primary: Happiest Baby
+            secondary: >
+              Last: {{ states('input_datetime.happiest_baby_last_sync') | as_timestamp | timestamp_custom('%b %d %I:%M %p', true) if states('input_datetime.happiest_baby_last_sync') != 'unknown' else 'Never' }}
+            icon: mdi:sleep
+            icon_color: purple
+          - type: custom:layout-card
+            layout_type: custom:grid-layout
+            layout:
+              grid-template-columns: 3fr 1fr
+              grid-template-rows: auto
+            cards:
+              - type: markdown
+                content: >
+                  **Status:** {{ states('input_text.happiest_baby_last_status') }}
+
+                  **Next:** {{ (now().replace(hour=((now().hour // 3 + 1) * 3) % 24, minute=0, second=0)).strftime('%I:%M %p') }}
+              - type: button
+                name: Sync
+                icon: mdi:sync
+                tap_action:
+                  action: call-service
+                  service: script.sync_happiest_baby_manual
+          # Lillio Section
+          - type: custom:mushroom-template-card
+            primary: Lillio
+            secondary: >
+              Last: {{ states('input_datetime.lillio_last_sync') | as_timestamp | timestamp_custom('%b %d %I:%M %p', true) if states('input_datetime.lillio_last_sync') != 'unknown' else 'Never' }}
+            icon: mdi:school
+            icon_color: blue
+          - type: custom:layout-card
+            layout_type: custom:grid-layout
+            layout:
+              grid-template-columns: 3fr 1fr
+              grid-template-rows: auto
+            cards:
+              - type: markdown
+                content: >
+                  **Status:** {{ states('input_text.lillio_last_status') }}
+
+                  **Next:** {% if now().weekday() < 5 and now().hour < 17 %}5:00 PM{% elif now().weekday() < 4 %}Tomorrow 5:00 PM{% else %}Mon 5:00 PM{% endif %}
+              - type: button
+                name: Sync
+                icon: mdi:sync
+                tap_action:
+                  action: call-service
+                  service: script.sync_lillio_manual
+
