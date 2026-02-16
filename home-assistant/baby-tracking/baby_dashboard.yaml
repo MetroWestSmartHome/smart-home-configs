@@ -578,7 +578,7 @@
                     entity: input_boolean.baby_display_imperial
                     state: "off"
                 row:
-                  entity: sensor.your_baby_last_feeding_ml
+                  entity: sensor.your_baby_last_bottle_ml
                   name: Amount
               - type: conditional
                 conditions:
@@ -586,14 +586,14 @@
                     entity: input_boolean.baby_display_imperial
                     state: "on"
                 row:
-                  entity: sensor.your_baby_last_feeding_oz
+                  entity: sensor.your_baby_last_bottle_oz
                   name: Amount
               - type: attribute
-                entity: sensor.your_baby_last_feeding
-                attribute: start
+                entity: sensor.your_baby_last_bottle_ml
+                attribute: time
                 name: Time
               - type: attribute
-                entity: sensor.your_baby_last_feeding
+                entity: sensor.your_baby_last_bottle_ml
                 attribute: notes
                 name: Notes
           - type: custom:mushroom-title-card
@@ -741,13 +741,13 @@
           - type: horizontal-stack
             cards:
               - type: button
-                name: Update Feeding
+                name: Update Bottle
                 icon: mdi:content-save
                 tap_action:
                   action: call-service
-                  service: script.babybuddy_update_last_feeding
+                  service: script.babybuddy_update_last_bottle
                   confirmation:
-                    text: Update feeding?
+                    text: Update bottle?
               - type: grid
                 cards: []
               - type: grid

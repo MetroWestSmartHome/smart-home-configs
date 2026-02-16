@@ -32,42 +32,6 @@
 
 template:
   - sensor:
-      # Last feeding in ml (metric)
-      - name: "YOUR_BABY Last Feeding ml"
-        unique_id: your_baby_last_feeding_ml
-        icon: mdi:baby-bottle-outline
-        unit_of_measurement: "ml"
-        state: "{{ states('sensor.your_baby_last_feeding') | float(0) | round(0) }}"
-        attributes:
-          time: "{{ state_attr('sensor.your_baby_last_feeding', 'start') }}"
-          type: "{{ state_attr('sensor.your_baby_last_feeding', 'type') }}"
-          method: "{{ state_attr('sensor.your_baby_last_feeding', 'method') }}"
-          id: >
-            {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
-            {% if results and results | length > 0 %}
-              {{ (results | sort(attribute='start', reverse=true) | first).id }}
-            {% else %}
-              {{ state_attr('sensor.your_baby_last_feeding', 'id') | default('') }}
-            {% endif %}
-
-      # Last feeding in oz (imperial)
-      - name: "YOUR_BABY Last Feeding oz"
-        unique_id: your_baby_last_feeding_oz
-        icon: mdi:baby-bottle-outline
-        unit_of_measurement: "oz"
-        state: "{{ (states('sensor.your_baby_last_feeding') | float(0) / 29.5735) | round(1) }}"
-        attributes:
-          time: "{{ state_attr('sensor.your_baby_last_feeding', 'start') }}"
-          type: "{{ state_attr('sensor.your_baby_last_feeding', 'type') }}"
-          method: "{{ state_attr('sensor.your_baby_last_feeding', 'method') }}"
-          id: >
-            {% set results = state_attr('sensor.babybuddy_feedings_today', 'results') %}
-            {% if results and results | length > 0 %}
-              {{ (results | sort(attribute='start', reverse=true) | first).id }}
-            {% else %}
-              {{ state_attr('sensor.your_baby_last_feeding', 'id') | default('') }}
-            {% endif %}
-
       # Time since last feeding
       - name: "YOUR_BABY Time Since Feeding"
         unique_id: your_baby_time_since_feeding
@@ -1378,6 +1342,41 @@ script:
             - input_text.baby_growth_notes
         data:
           value: ""
+
+  # Update the most recent bottle feeding (not solid food)
+  babybuddy_update_last_bottle:
+    alias: "Update Last Bottle"
+    description: "Update the most recent bottle feeding with new amount and notes, then clear fields"
+    sequence:
+      # Get the bottle ID from the template sensor (filters out solid food)
+      - variables:
+          feeding_id: "{{ state_attr('sensor.your_baby_last_bottle_ml', 'id') }}"
+      # Call the REST command to update the feeding
+      - service: rest_command.babybuddy_update_feeding
+        data:
+          feeding_id: "{{ feeding_id }}"
+      # Small delay to let the API process
+      - delay:
+          milliseconds: 500
+      # Clear the input fields
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.baby_edit_feeding_amount_input
+        data:
+          value: ""
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.baby_edit_feeding_notes
+        data:
+          value: ""
+      # Refresh sensors to show updated data
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            - sensor.babybuddy_feedings_today
+            - sensor.babybuddy_feedings_7_days
+            - sensor.your_baby_last_feeding
+    icon: mdi:baby-bottle-outline
 
 # ==============================================================================
 # INPUT HELPERS
