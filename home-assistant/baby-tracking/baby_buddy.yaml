@@ -1312,6 +1312,43 @@ rest_command:
 # ==============================================================================
 
 script:
+  # ---------------------------------------------------------------------------
+  # Set time helpers to current time
+  # Dashboard buttons cannot template service_data, so we use scripts
+  # ---------------------------------------------------------------------------
+  baby_set_log_time_now:
+    alias: "Set Log Time to Now"
+    description: "Sets the log time helper to current time"
+    sequence:
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.baby_log_time
+        data:
+          time: "{{ now().strftime('%H:%M:%S') }}"
+    icon: mdi:clock-outline
+
+  baby_set_sleep_start_now:
+    alias: "Set Sleep Start to Now"
+    description: "Sets the sleep start time helper to current time"
+    sequence:
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.baby_sleep_start_time
+        data:
+          time: "{{ now().strftime('%H:%M:%S') }}"
+    icon: mdi:clock-start
+
+  baby_set_sleep_end_now:
+    alias: "Set Sleep End to Now"
+    description: "Sets the sleep end time helper to current time"
+    sequence:
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.baby_sleep_end_time
+        data:
+          time: "{{ now().strftime('%H:%M:%S') }}"
+    icon: mdi:clock-end
+
   # Log all filled growth measurements in one action
   babybuddy_log_growth:
     alias: "Log Growth Measurements"
@@ -1407,6 +1444,19 @@ input_datetime:
     has_date: true
     has_time: false
     icon: mdi:calendar
+
+  # Sync status tracking - when external services last synced
+  happiest_baby_last_sync:
+    name: Happiest Baby Last Sync
+    has_date: true
+    has_time: true
+    icon: mdi:clock-check
+
+  lillio_last_sync:
+    name: Lillio Last Sync
+    has_date: true
+    has_time: true
+    icon: mdi:clock-check
 
 # Text inputs for amounts and notes
 input_text:
@@ -1634,24 +1684,11 @@ input_number:
     mode: box
     icon: mdi:calendar-range
 
-input_datetime:
-  happiest_baby_last_sync:
-    name: Happiest Baby Last Sync
-    has_date: true
-    has_time: true
-    icon: mdi:clock-check
-
-  lillio_last_sync:
-    name: Lillio Last Sync
-    has_date: true
-    has_time: true
-    icon: mdi:clock-check
-
 # ------------------------------------------------------------------------------
 # Scripts - Popup triggers with date reset
 # These scripts reset date navigation to today before opening popups
 # ------------------------------------------------------------------------------
-script:
+
   # Open Diaper History popup, resetting to today first
   baby_open_diaper_history:
     alias: "Open Diaper History (Reset to Today)"
