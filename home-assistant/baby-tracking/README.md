@@ -19,7 +19,9 @@ This repository contains the **full working configuration** - more comprehensive
 - **REST commands** for logging and editing entries from dashboard
 - **Input helpers** for quick-log forms and popup triggers
 - **Date navigation** for historical browsing with auto-reset to today
-- **Popup reset scripts** using Bubble Card's `trigger_entity` pattern
+- **Two popup patterns**:
+  - **open_action** for edit/log popups (prepopulate fields on open, confirmation closes)
+  - **trigger_entity** for history popups (reset date offset before opening)
 - **External sync automations** for Happiest Baby and Lillio (daycare) - see Source Tags below
 
 ### Source Tags
@@ -112,6 +114,24 @@ The `input_boolean.baby_display_imperial` toggle switches between:
 - **Off**: ml, kg, cm
 
 All template sensors and dashboard displays respect this toggle.
+
+### Popup Patterns
+
+The dashboard uses two different Bubble Card popup patterns:
+
+**Edit/Log Popups** (`open_action` pattern):
+- Prepopulate form fields when popup opens
+- Confirmation dialog closes popup automatically
+- Examples: Edit bottle, log diaper, log growth
+- Script naming: `baby_prepopulate_*`
+
+**History Popups** (`trigger_entity` pattern):
+- Reset date offset before opening
+- Script controls both actions and popup opening
+- Examples: Feeding history, sleep history
+- Script naming: `baby_open_*_history`
+
+This distinction solves specific UX needs - prepopulation avoids stale timestamps, while history resets ensure you always see today's data when opening.
 
 ## Full Tutorial
 
